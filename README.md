@@ -1,28 +1,43 @@
-# Supply Chain Lite
+# Frontend Template
 
-Streamline your planning with lightweight, modern supply chain planning tools.
+A modern frontend starter template built with **Vite**, **Bootstrap 5**, and **SCSS**.
 
+## Features
 
-## 🚀 Getting Started
+- **Vite** — fast dev server and optimized builds
+- **Bootstrap 5.3** — with deep SCSS variable customization (Brutopia theme)
+- **Sass** — modular SCSS architecture with components, layouts, mixins, and utilities
+- **SweetAlert2** — pre-configured toast and dialog helpers
+- **ESLint + Prettier + Stylelint** — linting and formatting out of the box
+- **Multi-page support** — Vite auto-discovers `.html` files in `src/`
+- **GitHub Actions CI** — build, lint, and format checks on every PR
+
+## Getting Started
 
 ### Prerequisites
 
-- Node.js (v14 or higher)
-- npm or yarn
+- Node.js 18+ (see `.nvmrc`)
+- npm
 
 ### Installation
 
-1. Install dependencies:
 ```bash
 npm install
 ```
 
-2. Start the development server:
+Copy the example environment file and adjust as needed:
+
+```bash
+cp .env.example src/.env
+```
+
+### Development
+
 ```bash
 npm run dev
 ```
 
-3. Open your browser to `http://localhost:3000`
+Open `http://localhost:3000` in your browser.
 
 ### Build for Production
 
@@ -30,55 +45,103 @@ npm run dev
 npm run build
 ```
 
-The built files will be in the `dist` directory.
+Output goes to `dist/`.
 
-## 📁 Project Structure
+### Preview Production Build
+
+```bash
+npm run preview
+```
+
+## Project Structure
 
 ```
-scl-neo/
 ├── src/
+│   ├── common/
+│   │   └── js/
+│   │       ├── api.js           # Fetch-based API client
+│   │       ├── toast.js         # SweetAlert2 toast helpers
+│   │       └── dom.js           # DOM utility helpers
+│   ├── page_assets/
+│   │   └── index/
+│   │       └── js/main.js       # Entry point for index page
+│   ├── public/                  # Static assets (copied as-is)
 │   ├── scss/
-│   │   ├── _variables.scss      # Custom Bootstrap variables
-│   │   ├── _custom.scss          # Custom styles
-│   │   └── styles.scss           # Main SCSS entry point
-│   ├── js/
-│   │   └── main.js               # JavaScript entry point
-│   ├── index.html                # Home page
-│   ├── login.html                # Login page
-│   ├── signup.html               # Sign up page
-│   ├── forgot-password.html      # Forgot password page
-│   ├── reset-password.html       # Reset password page
-├── vite.config.js                # Vite configuration
+│   │   ├── components/          # Bootstrap component overrides
+│   │   ├── layouts/             # Page layout styles
+│   │   ├── mixins/              # SCSS mixins
+│   │   ├── _variables.scss      # Bootstrap + theme variables
+│   │   ├── _brutopia.scss       # Component import manifest
+│   │   ├── _fonts.scss          # Self-hosted font declarations
+│   │   ├── _utilities.scss      # Custom utility classes
+│   │   └── styles.scss          # Main SCSS entry point
+│   ├── .env                     # Environment variables (not committed)
+│   └── index.html               # Landing page
+├── .editorconfig
+├── .env.example                 # Environment variable template
+├── .github/workflows/ci.yml    # CI pipeline
+├── .nvmrc                       # Node version
+├── .prettierrc                  # Prettier config
+├── .stylelintrc.json            # Stylelint config
+├── eslint.config.js             # ESLint flat config
+├── LICENSE
 ├── package.json
+├── vite.config.js
 └── README.md
 ```
 
-## 🎨 Customization
+## Scripts
 
-### Colors
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Vite dev server |
+| `npm run build` | Production build to `dist/` |
+| `npm run preview` | Preview the production build |
+| `npm run lint` | Lint JavaScript with ESLint |
+| `npm run lint:fix` | Auto-fix ESLint issues |
+| `npm run lint:css` | Lint SCSS with Stylelint |
+| `npm run lint:css:fix` | Auto-fix Stylelint issues |
+| `npm run format` | Format code with Prettier |
+| `npm run format:check` | Check formatting without writing |
 
-Edit `src/scss/_variables.scss` to customize the color palette:
+## Customization
+
+### Theme Colors
+
+Edit `src/scss/_variables.scss` to change the color palette:
 
 ```scss
-$primary: #6366f1;
-$secondary: #a855f7;
-$success: #10b981;
-$danger: #ef4444;
-// ... and more
+$primary:   #141414;
+$secondary: #A8A196;
+$success:   #6fc59a;
+$danger:    #d1503b;
 ```
 
-## 🛠️ Technologies Used
+### Adding a New Page
 
-- [Bootstrap 5.3.2](https://getbootstrap.com/)
-- [Sass](https://sass-lang.com/)
-- [Vite](https://vitejs.dev/)
-- [Google Fonts (Inter)](https://fonts.google.com/specimen/Inter)
+1. Create `src/my-page.html`
+2. Create `src/page_assets/my-page/js/main.js` for page-specific JS
+3. Vite will auto-discover the HTML file — no config changes needed
 
-## 📝 License
+### Environment Variables
 
-MIT License - feel free to use this theme for personal and commercial projects.
+All `VITE_`-prefixed variables in `src/.env` are available in JS via `import.meta.env`:
 
-## 🤝 Contributing
+```js
+const apiUrl = import.meta.env.VITE_API_BASE_URL;
+```
 
-Contributions, issues, and feature requests are welcome!
+### JS Utilities
+
+Pre-built helpers are available in `src/common/js/`:
+
+```js
+import api from '@/common/js/api';
+import { toastSuccess } from '@/common/js/toast';
+import { $, on } from '@/common/js/dom';
+```
+
+## License
+
+[MIT](LICENSE)
 

@@ -3,15 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Supply Chain Lite — Landing</title>
+  <title>My App</title>
+  <meta name="description" content="A modern frontend starter template built with Vite, Bootstrap 5, and SCSS." />
+  <meta name="theme-color" content="#141414" />
+  <meta property="og:title" content="My App" />
+  <meta property="og:description" content="A modern frontend starter template built with Vite, Bootstrap 5, and SCSS." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/svg+xml" href="/scc.svg" />
 </head>
 <body class="min-vh-100 d-flex flex-column">
   <!-- Navbar -->
   <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm py-2">
     <div class="container-fluid">
-      <a class="navbar-brand d-flex align-items-center" href="landing.html">
-        <img src="/summence_bw.png" alt="Supply Chain Lite" width="24" height="24" />
-        <span class="fs-5 fw-bold text-dark ms-3">Supply Chain Lite</span>
+      <a class="navbar-brand d-flex align-items-center" href="/">
+        <img src="/scc.svg" alt="Logo" width="24" height="24" />
+        <span class="fs-5 fw-bold text-dark ms-3">My App</span>
       </a>
 
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -20,11 +26,10 @@
 
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ms-auto align-items-lg-center">
-          <li class="nav-item"><a class="nav-link fw-bold" href="home-page.html">Home</a></li>
+          <li class="nav-item"><a class="nav-link fw-bold" href="/">Home</a></li>
           <li class="nav-item"><a class="nav-link fw-bold" href="#features">Features</a></li>
-          <li class="nav-item"><a class="nav-link fw-bold" href="#how-it-works">How it works</a></li>
-          <li class="nav-item"><a class="btn btn-dark ms-lg-3" id="signInBtnNav" href="login.html">Sign In</a></li>
-          <li class="nav-item mt-2 mt-lg-0"><a class="btn btn-outline-dark ms-lg-2" href="signup.html">Create Account</a></li>
+          <li class="nav-item"><a class="nav-link fw-bold" href="#about">About</a></li>
+          <li class="nav-item"><a class="btn btn-dark ms-lg-3" href="#">Sign In</a></li>
         </ul>
       </div>
     </div>
@@ -34,22 +39,51 @@
 <!-- Hero Section -->
 <section class="hero">
   <div class="container py-5">
-    <h1 class="display-4 fw-bold">Welcome to My Project</h1>
+    <h1 class="display-4 fw-bold">Frontend Template</h1>
     <p class="lead mt-3">
-      A clean and simple Bootstrap introduction page template.
+      A modern starter template with Vite, Bootstrap 5, and SCSS.
     </p>
-    <a href="#" class="btn btn-light btn-lg mt-3">Get Started</a>
+    <a href="#about" class="btn btn-light btn-lg mt-3">Get Started</a>
   </div>
 </section>
 
 <!-- Intro Section -->
-<section class="pt-5 pb-2">
+<section id="about" class="pt-5 pb-2">
   <div class="container text-center">
-    <h2>About This Page</h2>
+    <h2>About This Template</h2>
     <p class="mt-3 text-muted">
-      This is a simple landing page built with Bootstrap. It can be used as a
-      starter template for websites, dashboards, or applications.
+      This is a starter landing page built with Bootstrap 5 and Vite. Customize the
+      SCSS variables, add your pages, and start building.
     </p>
+  </div>
+</section>
+
+<!-- SweetAlert2 Toast Demo -->
+<section class="pb-4">
+  <div class="container text-center">
+    <h2>SweetAlert2 Toasts</h2>
+    <p class="mt-3 text-muted">Lightweight overlay toasts powered by SweetAlert2.</p>
+    <div class="d-flex flex-wrap justify-content-center gap-2 mt-4">
+      <button id="btn-toast-success" class="btn btn-success">Success</button>
+      <button id="btn-toast-error" class="btn btn-danger">Error</button>
+      <button id="btn-toast-warning" class="btn btn-warning">Warning</button>
+      <button id="btn-toast-info" class="btn btn-info">Info</button>
+      <button id="btn-confirm" class="btn btn-dark">Confirm Dialog</button>
+    </div>
+  </div>
+</section>
+
+<!-- Bootstrap Toast Demo -->
+<section class="pb-5">
+  <div class="container text-center">
+    <h2>Bootstrap Toasts</h2>
+    <p class="mt-3 text-muted">Native Bootstrap 5 toasts — uses your theme colors and variables.</p>
+    <div class="d-flex flex-wrap justify-content-center gap-2 mt-4">
+      <button id="btn-bs-toast-success" class="btn btn-outline-success">Success</button>
+      <button id="btn-bs-toast-error" class="btn btn-outline-danger">Error</button>
+      <button id="btn-bs-toast-warning" class="btn btn-outline-warning">Warning</button>
+      <button id="btn-bs-toast-info" class="btn btn-outline-info">Info</button>
+    </div>
   </div>
 </section>
 
@@ -57,9 +91,9 @@
   <footer class="bg-dark text-center pt-2 pb-0 mt-auto border-top">
     <div class="container">
       <div class="d-flex align-items-center justify-content-center mb-2">
-        <img src="/summence_bw.png" alt="SupplyChainLite Logo" width="32" height="32" />
+        <img src="/scc.svg" alt="Logo" width="32" height="32" />
       </div>
-      <p class="text-white fw-bold">Supply Chain Lite</p>
+      <p class="text-white fw-bold">My App</p>
     </div>
   </footer>
   
