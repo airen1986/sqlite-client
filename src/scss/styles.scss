@@ -1,0 +1,25 @@
+@import 'variables';
+
+// Bootstrap + Icons
+@import 'bootstrap/scss/bootstrap';
+
+// Fix icon placement
+body .bi::before, [class^=bi-]::before, [class*=" bi-"]::before {
+    vertical-align: sub;
+}
+
+// Import fonts
+@import 'fonts';
+
+// Perfect Scrollbar
+// @import "~perfect-scrollbar/css/perfect-scrollbar.css";
+
+// brutopia CSS
+@import 'brutopia';
+
+
+// Remove the dividing line created by Bootstrap's inset box-shadow on expanded headers
+#tablesAccordion .accordion-button:not(.collapsed) {
+    box-shadow: none !important;
+    border-bottom: 0 !important;
+}

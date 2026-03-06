@@ -1,0 +1,29 @@
+{
+  "name": "supply-chain-lite",
+  "version": "1.0.0",
+  "description": "A lightweight supply chain planning and optimization tool with demand planning and capacity planning capabilities",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "demand-planning",
+    "supply-chain",
+    "supply-planning",
+    "optimization",
+    "capacity-planning"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "sass": "^1.69.0",
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "@popperjs/core": "^2.11.8",
+    "bootstrap": "^5.3.8",
+    "sweetalert2": "^11.26.10"
+  }
+}
