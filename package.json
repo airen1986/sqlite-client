@@ -4,7 +4,7 @@
   "description": "A frontend starter template with Vite, Bootstrap 5, and SCSS",
   "type": "module",
   "engines": {
-"node": ">=20"
+    "node": ">=20"
   },
   "scripts": {
     "dev": "vite",
@@ -12,8 +12,6 @@
     "preview": "vite preview",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
-    "lint:css": "stylelint \"src/**/*.scss\"",
-    "lint:css:fix": "stylelint \"src/**/*.scss\" --fix",
     "format": "prettier --write \"src/**/*.{html,js,scss,json}\"",
     "format:check": "prettier --check \"src/**/*.{html,js,scss,json}\""
   },
@@ -31,8 +29,6 @@
     "eslint": "^10.0.2",
     "prettier": "^3.8.1",
     "sass": "^1.69.0",
-    "stylelint": "^17.4.0",
-    "stylelint-config-standard-scss": "^17.0.0",
     "vite": "^5.0.0"
   },
   "dependencies": {
