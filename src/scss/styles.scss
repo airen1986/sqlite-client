@@ -20,7 +20,7 @@ body .bi::before,
 @import 'brutopia';
 
 // Remove the dividing line created by Bootstrap's inset box-shadow on expanded headers
-#tablesAccordion .accordion-button:not(.collapsed) {
+.accordion-button:not(.collapsed) {
   box-shadow: none !important;
   border-bottom: 0 !important;
 }

@@ -1,0 +1,217 @@
+// ===== SCL-SQL App Layout =====
+
+#scl-layout {
+  height: calc(100vh - 56px); // navbar height
+}
+
+// Sidebar
+#scl-sidebar {
+  width: 280px;
+  min-width: 280px;
+  overflow-y: auto;
+
+  .list-group-item {
+    border: none;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border-radius: 0.375rem;
+
+    &:hover {
+      background-color: $sidebar-link-hover-bg;
+    }
+
+    &.active {
+      background-color: $black;
+      color: #fff;
+      border-color: $black;
+    }
+  }
+
+  .obj-item {
+    font-family: $font-family-monospace;
+    font-size: 0.8rem;
+  }
+
+  .db-delete {
+    visibility: hidden;
+    background: none;
+    border: none;
+    color: $text-muted;
+    cursor: pointer;
+    padding: 0 4px;
+    font-size: 0.9rem;
+
+    &:hover {
+      color: $danger;
+    }
+  }
+
+  .list-group-item:hover .db-delete {
+    visibility: visible;
+  }
+}
+
+// Editor Tabs
+#editor-tabs-bar {
+  padding-left: 0.5rem;
+
+  #editor-tabs {
+    gap: 2px;
+    scrollbar-width: thin;
+
+    .nav-item {
+      flex-shrink: 0;
+    }
+  }
+}
+
+.editor-tab-btn {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 0.375rem 0.375rem 0 0;
+  white-space: nowrap;
+  position: relative;
+  padding-right: 1.5rem; // space for close btn
+
+  &.active {
+    font-weight: 600;
+  }
+}
+
+.editor-tab-close {
+  position: absolute;
+  right: 0.3rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0.4;
+  cursor: pointer;
+
+  &:hover {
+    opacity: 1;
+    color: $danger;
+  }
+}
+
+// SQL Editor
+.scl-editor-textarea {
+  font-family: $font-family-monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  resize: vertical;
+  border: none;
+  border-radius: 0;
+  min-height: 100px;
+  background-color: $body-bg;
+
+  &:focus {
+    box-shadow: none;
+    border-color: transparent;
+  }
+}
+
+// Results table
+.scl-results-table {
+  font-family: $font-family-monospace;
+  font-size: 0.8rem;
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    white-space: nowrap;
+    background-color: $gray-100;
+    box-shadow:
+      inset 0 -2px 0 $black,
+      inset 0 2px 0 $black;
+  }
+
+  thead tr {
+    border: 0;
+  }
+
+  tbody tr:first-child {
+    border-top: 0;
+  }
+
+  td {
+    white-space: pre;
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+// DDL code
+#ddl-code {
+  line-height: 1.6;
+  font-size: 0.8rem;
+  min-height: 100%;
+}
+
+// History table
+#history-table {
+  font-size: 0.8rem;
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    white-space: nowrap;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background-color: $gray-100;
+  }
+
+  .hist-sql-cell {
+    font-family: $font-family-monospace;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 400px;
+  }
+
+  .hist-status-cell {
+    font-size: 0.75rem;
+    white-space: nowrap;
+
+    &.text-success {
+      color: $success !important;
+    }
+
+    &.text-danger {
+      color: $danger !important;
+    }
+  }
+
+  .hist-time-cell {
+    font-size: 0.7rem;
+    color: $text-muted;
+    white-space: nowrap;
+  }
+}
+
+// Results message (error / success)
+#results-message {
+  font-family: $font-family-monospace;
+  white-space: pre-wrap;
+
+  &.text-danger {
+    color: $danger !important;
+  }
+}
+
+// Tab content panel — cannot use Bootstrap d-flex on .tab-pane
+// because !important overrides display:none for inactive tabs.
+.scl-tab-pane {
+  height: 100%;
+
+  &.show.active {
+    display: flex !important;
+    flex-direction: column;
+  }
+}
