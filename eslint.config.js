@@ -11,6 +11,13 @@ export default [
         document: "readonly",
         console: "readonly",
         fetch: "readonly",
+        navigator: "readonly",
+        Blob: "readonly",
+        URL: "readonly",
+        localStorage: "readonly",
+        Worker: "readonly",
+        performance: "readonly",
+        self: "readonly",
         HTMLElement: "readonly",
         NodeList: "readonly",
         FormData: "readonly",
@@ -27,6 +34,6 @@ export default [
     },
   },
   {
-    ignores: ["dist/", "node_modules/"],
+    ignores: ["dist/", "node_modules/", "src/public/sqlite-wasm/"],
   },
 ];

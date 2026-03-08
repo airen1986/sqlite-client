@@ -1,7 +1,7 @@
 {
-  "name": "frontend-template",
+  "name": "scl-sql",
   "version": "1.0.0",
-  "description": "A frontend starter template with Vite, Bootstrap 5, and SCSS",
+  "description": "Browser-based SQLite client with OPFS persistence",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -10,18 +10,14 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "setup": "node scripts/copy-sqlite-wasm.js",
+    "postinstall": "node scripts/copy-sqlite-wasm.js",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "format": "prettier --write \"src/**/*.{html,js,scss,json}\"",
     "format:check": "prettier --check \"src/**/*.{html,js,scss,json}\""
   },
-  "keywords": [
-    "template",
-    "vite",
-    "bootstrap",
-    "scss",
-    "frontend"
-  ],
+  "keywords": ["sqlite", "wasm", "opfs", "sql-client"],
   "author": "",
   "license": "MIT",
   "devDependencies": {
@@ -33,6 +29,7 @@
   },
   "dependencies": {
     "@popperjs/core": "^2.11.8",
+    "@sqlite.org/sqlite-wasm": "^3.51.2-build6",
     "bootstrap": "^5.3.8",
     "sweetalert2": "^11.26.10"
   }

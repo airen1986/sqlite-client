@@ -3,18 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My App</title>
-    <meta
-      name="description"
-      content="A modern frontend starter template built with Vite, Bootstrap 5, and SCSS."
-    />
+    <title>SCL-SQL</title>
+    <meta name="description" content="Browser-based SQLite client with OPFS persistence." />
     <meta name="theme-color" content="#141414" />
-    <meta property="og:title" content="My App" />
-    <meta
-      property="og:description"
-      content="A modern frontend starter template built with Vite, Bootstrap 5, and SCSS."
-    />
-    <meta property="og:type" content="website" />
     <link rel="icon" type="image/svg+xml" href="/scc.svg" />
   </head>
   <body class="min-vh-100 d-flex flex-column">
@@ -23,92 +14,293 @@
       <div class="container-fluid">
         <a class="navbar-brand d-flex align-items-center" href="/">
           <img src="/scc.svg" alt="Logo" width="24" height="24" />
-          <span class="fs-5 fw-bold text-dark ms-3">My App</span>
+          <span class="fs-5 fw-bold text-dark ms-3">SCL-SQL</span>
         </a>
 
-        <button
-          class="navbar-toggler"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarNav"
-          aria-controls="navbarNav"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
-        >
-          <span class="navbar-toggler-icon"></span>
-        </button>
-
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav ms-auto align-items-lg-center">
-            <li class="nav-item"><a class="nav-link fw-bold" href="/">Home</a></li>
-            <li class="nav-item"><a class="nav-link fw-bold" href="#features">Features</a></li>
-            <li class="nav-item"><a class="nav-link fw-bold" href="#about">About</a></li>
-            <li class="nav-item"><a class="btn btn-dark ms-lg-3" href="#">Sign In</a></li>
-          </ul>
+        <div class="d-flex align-items-center gap-2">
+          <span id="status-text" class="text-muted text-sm me-2"></span>
+          <label class="btn btn-dark btn-sm mb-0" title="Upload database files">
+            &#x2B06; Upload DB
+            <input type="file" id="db-upload" multiple accept=".db,.sqlite,.sqlite3" hidden />
+          </label>
+          <button
+            id="settings-btn"
+            class="btn btn-outline-dark btn-sm"
+            title="Settings"
+            data-bs-toggle="modal"
+            data-bs-target="#settingsModal"
+          >
+            &#x2699;
+          </button>
         </div>
       </div>
     </nav>
 
-    <!-- Hero Section -->
-    <section class="hero">
-      <div class="container py-5">
-        <h1 class="display-4 fw-bold">Frontend Template</h1>
-        <p class="lead mt-3">A modern starter template with Vite, Bootstrap 5, and SCSS.</p>
-        <a href="#about" class="btn btn-light btn-lg mt-3">Get Started</a>
-      </div>
-    </section>
+    <!-- Main Layout -->
+    <div id="scl-layout" class="d-flex flex-grow-1 overflow-hidden">
+      <!-- Sidebar -->
+      <aside id="scl-sidebar" class="border-end bg-white">
+        <!-- Databases -->
+        <div class="p-3 border-bottom">
+          <h6
+            class="text-uppercase text-muted fw-bold mb-2"
+            style="font-size: 0.7rem; letter-spacing: 1px"
+          >
+            Databases
+          </h6>
+          <ul id="db-list" class="list-group list-group-flush"></ul>
+          <div id="db-empty" class="text-muted fst-italic text-sm">
+            No databases. Upload a .db file.
+          </div>
+        </div>
 
-    <!-- Intro Section -->
-    <section id="about" class="pt-5 pb-2">
-      <div class="container text-center">
-        <h2>About This Template</h2>
-        <p class="mt-3 text-muted">
-          This is a starter landing page built with Bootstrap 5 and Vite. Customize the SCSS
-          variables, add your pages, and start building.
-        </p>
-      </div>
-    </section>
+        <!-- Objects (Tables / Views) -->
+        <div id="objects-section" class="p-3 d-none">
+          <div class="accordion" id="objectsAccordion">
+            <!-- Tables -->
+            <div class="accordion-item border-0">
+              <h2 class="accordion-header">
+                <button
+                  class="accordion-button py-2 px-0 bg-transparent fw-bold"
+                  type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#collapseTablesObj"
+                  aria-expanded="true"
+                  style="font-size: 0.7rem; letter-spacing: 1px"
+                >
+                  TABLES
+                </button>
+              </h2>
+              <div id="collapseTablesObj" class="accordion-collapse collapse show">
+                <div class="accordion-body p-0">
+                  <ul id="table-list" class="list-group list-group-flush"></ul>
+                </div>
+              </div>
+            </div>
+            <!-- Views -->
+            <div id="objects-views" class="accordion-item border-0 d-none">
+              <h2 class="accordion-header">
+                <button
+                  class="accordion-button collapsed py-2 px-0 bg-transparent fw-bold"
+                  type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#collapseViewsObj"
+                  aria-expanded="false"
+                  style="font-size: 0.7rem; letter-spacing: 1px"
+                >
+                  VIEWS
+                </button>
+              </h2>
+              <div id="collapseViewsObj" class="accordion-collapse collapse">
+                <div class="accordion-body p-0">
+                  <ul id="view-list" class="list-group list-group-flush"></ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
 
-    <!-- SweetAlert2 Toast Demo -->
-    <section class="pb-4">
-      <div class="container text-center">
-        <h2>SweetAlert2 Toasts</h2>
-        <p class="mt-3 text-muted">Lightweight overlay toasts powered by SweetAlert2.</p>
-        <div class="d-flex flex-wrap justify-content-center gap-2 mt-4">
-          <button id="btn-toast-success" class="btn btn-success">Success</button>
-          <button id="btn-toast-error" class="btn btn-danger">Error</button>
-          <button id="btn-toast-warning" class="btn btn-warning">Warning</button>
-          <button id="btn-toast-info" class="btn btn-info">Info</button>
-          <button id="btn-confirm" class="btn btn-dark">Confirm Dialog</button>
+      <!-- Main Content -->
+      <main id="scl-main" class="d-flex flex-column flex-grow-1 overflow-hidden">
+        <!-- SQL Editor -->
+        <div id="editor-panel" class="border-bottom">
+          <!-- Editor Tabs -->
+          <div id="editor-tabs-bar" class="d-flex align-items-end bg-white border-bottom">
+            <ul id="editor-tabs" class="nav nav-tabs border-0 flex-nowrap mb-0"></ul>
+            <button
+              id="add-tab-btn"
+              class="btn btn-sm btn-outline-dark ms-1 my-1 flex-shrink-0"
+              title="New tab"
+            >
+              +
+            </button>
+          </div>
+          <div class="d-flex align-items-center gap-2 px-3 py-2 bg-white border-bottom">
+            <button id="run-btn" class="btn btn-success btn-sm" title="Execute query (Ctrl+Enter)">
+              &#x25B6; Run
+            </button>
+            <button id="clear-btn" class="btn btn-outline-dark btn-sm" title="Clear editor">
+              Clear
+            </button>
+          </div>
+          <textarea
+            id="sql-editor"
+            class="form-control scl-editor-textarea"
+            placeholder="Enter SQL query..."
+            spellcheck="false"
+            rows="6"
+          ></textarea>
+        </div>
+
+        <!-- Results / DDL / History Tabs -->
+        <div id="results-panel" class="d-flex flex-column flex-grow-1 overflow-hidden">
+          <ul class="nav nav-tabs px-3 pt-2 bg-white" id="panelTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link active"
+                id="results-tab"
+                data-bs-toggle="tab"
+                data-bs-target="#tab-results"
+                type="button"
+                role="tab"
+              >
+                Results
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link"
+                id="ddl-tab"
+                data-bs-toggle="tab"
+                data-bs-target="#tab-ddl"
+                type="button"
+                role="tab"
+              >
+                DDL
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link"
+                id="history-tab"
+                data-bs-toggle="tab"
+                data-bs-target="#tab-history"
+                type="button"
+                role="tab"
+              >
+                History
+              </button>
+            </li>
+          </ul>
+
+          <div class="tab-content flex-grow-1 overflow-hidden">
+            <!-- Results Tab -->
+            <div class="tab-pane fade show active scl-tab-pane" id="tab-results" role="tabpanel">
+              <div
+                id="results-toolbar"
+                class="d-none align-items-center gap-2 px-3 py-2 bg-white border-bottom"
+              >
+                <button
+                  id="copy-results-btn"
+                  class="btn btn-outline-dark btn-sm"
+                  title="Copy (tab-separated)"
+                >
+                  &#x1F4CB; Copy
+                </button>
+                <button
+                  id="export-csv-btn"
+                  class="btn btn-outline-dark btn-sm"
+                  title="Export as CSV"
+                >
+                  &#x1F4E5; CSV
+                </button>
+                <span id="row-count" class="ms-auto text-muted text-sm"></span>
+              </div>
+              <div id="results-container" class="flex-grow-1 overflow-auto">
+                <div id="results-placeholder" class="text-center text-muted fst-italic p-4">
+                  Run a query to see results
+                </div>
+                <div id="results-table-wrap" class="d-none h-100 overflow-auto">
+                  <table
+                    id="results-table"
+                    class="table table-hover table-sm table-bordered mb-0 scl-results-table"
+                  >
+                    <thead id="results-thead"></thead>
+                    <tbody id="results-tbody"></tbody>
+                  </table>
+                </div>
+                <pre id="results-message" class="d-none m-0 p-3 text-sm"></pre>
+              </div>
+            </div>
+
+            <!-- DDL Tab -->
+            <div class="tab-pane fade scl-tab-pane" id="tab-ddl" role="tabpanel">
+              <div class="d-flex align-items-center gap-2 px-3 py-2 bg-white border-bottom">
+                <strong id="ddl-object-name" class="text-primary font-monospace"></strong>
+                <button
+                  id="ddl-query-btn"
+                  class="btn btn-outline-dark btn-sm ms-auto"
+                  title="SELECT first 100 rows in a new tab"
+                >
+                  &#x25B6; Top 100
+                </button>
+                <button id="ddl-copy-btn" class="btn btn-outline-dark btn-sm" title="Copy DDL">
+                  &#x1F4CB; Copy DDL
+                </button>
+              </div>
+              <div id="ddl-container" class="flex-grow-1 overflow-auto">
+                <pre
+                  id="ddl-code"
+                  class="m-0 p-3 bg-white font-monospace text-sm"
+                  style="white-space: pre-wrap"
+                ></pre>
+              </div>
+            </div>
+
+            <!-- History Tab -->
+            <div class="tab-pane fade scl-tab-pane" id="tab-history" role="tabpanel">
+              <div id="history-container" class="flex-grow-1 overflow-auto">
+                <div id="history-empty" class="text-center text-muted fst-italic p-4">
+                  No queries yet.
+                </div>
+                <div id="history-table-wrap" class="d-none h-100 overflow-auto">
+                  <table id="history-table" class="table table-hover table-sm mb-0">
+                    <thead>
+                      <tr>
+                        <th style="width: 120px">Database</th>
+                        <th style="min-width: 200px">Query</th>
+                        <th style="width: 180px">Status</th>
+                        <th style="width: 130px">Time</th>
+                        <th style="width: 100px" class="text-center"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="history-tbody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Settings Modal (Bootstrap) -->
+    <div
+      class="modal fade"
+      id="settingsModal"
+      tabindex="-1"
+      aria-labelledby="settingsModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="settingsModalLabel">Settings</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="api-key-input" class="form-label fw-bold">
+                AI API Key (for future autocomplete)
+              </label>
+              <input type="password" class="form-control" id="api-key-input" placeholder="sk-..." />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-dark" data-bs-dismiss="modal">
+              Cancel
+            </button>
+            <button type="button" class="btn btn-dark" id="save-settings-btn">Save</button>
+          </div>
         </div>
       </div>
-    </section>
-
-    <!-- Bootstrap Toast Demo -->
-    <section class="pb-5">
-      <div class="container text-center">
-        <h2>Bootstrap Toasts</h2>
-        <p class="mt-3 text-muted">
-          Native Bootstrap 5 toasts — uses your theme colors and variables.
-        </p>
-        <div class="d-flex flex-wrap justify-content-center gap-2 mt-4">
-          <button id="btn-bs-toast-success" class="btn btn-outline-success">Success</button>
-          <button id="btn-bs-toast-error" class="btn btn-outline-danger">Error</button>
-          <button id="btn-bs-toast-warning" class="btn btn-outline-warning">Warning</button>
-          <button id="btn-bs-toast-info" class="btn btn-outline-info">Info</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="bg-dark text-center pt-2 pb-0 mt-auto border-top">
-      <div class="container">
-        <div class="d-flex align-items-center justify-content-center mb-2">
-          <img src="/scc.svg" alt="Logo" width="32" height="32" />
-        </div>
-        <p class="text-white fw-bold">My App</p>
-      </div>
-    </footer>
+    </div>
 
     <script type="module" src="/page_assets/index/js/main.js"></script>
   </body>
