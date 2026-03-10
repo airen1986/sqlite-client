@@ -10,8 +10,14 @@
 import { $, on } from './dom';
 import { EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import {
+  acceptCompletion,
+  autocompletion,
+  completionKeymap,
+  completionStatus,
+} from '@codemirror/autocomplete';
 import { tags as t } from '@lezer/highlight';
 import { sql } from '@codemirror/lang-sql';
 import { toastSuccess, toastError, toastInfo, confirm } from './toast';
@@ -40,6 +46,52 @@ let lazyRows = null;
 let msgIdCounter = 0;
 const pendingMessages = new Map();
 const RESULTS_CHUNK_SIZE = 1000;
+const ENABLE_SQL_AUTOCOMPLETE = true;
+const SQL_KEYWORDS = [
+  'SELECT',
+  'FROM',
+  'WHERE',
+  'GROUP BY',
+  'ORDER BY',
+  'LIMIT',
+  'OFFSET',
+  'INSERT INTO',
+  'UPDATE',
+  'DELETE FROM',
+  'CREATE TABLE',
+  'ALTER TABLE',
+  'DROP TABLE',
+  'CREATE INDEX',
+  'DROP INDEX',
+  'CREATE VIEW',
+  'DROP VIEW',
+  'JOIN',
+  'LEFT JOIN',
+  'RIGHT JOIN',
+  'INNER JOIN',
+  'ON',
+  'AS',
+  'AND',
+  'OR',
+  'NOT',
+  'IN',
+  'LIKE',
+  'BETWEEN',
+  'IS NULL',
+  'IS NOT NULL',
+  'DISTINCT',
+  'HAVING',
+  'UNION',
+  'UNION ALL',
+  'EXCEPT',
+  'INTERSECT',
+  'WITH',
+  'VALUES',
+  'PRAGMA',
+  'BEGIN',
+  'COMMIT',
+  'ROLLBACK',
+];
 
 const sqlHighlightStyle = HighlightStyle.define([
   { tag: [t.keyword, t.definitionKeyword, t.modifier], class: 'cm-tok-keyword' },
@@ -57,6 +109,127 @@ let tabIdCounter = 0;
 const editorTabs = []; // [{ id, title, sql }]
 let activeTabId = null;
 let sqlEditorView = null;
+const completionSchema = {
+  dbName: null,
+  tables: [],
+  views: [],
+  columnsByTable: new Map(),
+  loadingPromise: null,
+};
+
+function clearCompletionSchema() {
+  completionSchema.dbName = null;
+  completionSchema.tables = [];
+  completionSchema.views = [];
+  completionSchema.columnsByTable = new Map();
+}
+
+function escapeSqlIdentifier(name) {
+  return String(name).replace(/]/g, ']]');
+}
+
+async function refreshCompletionSchema() {
+  if (!currentDb) {
+    clearCompletionSchema();
+    return;
+  }
+  if (completionSchema.loadingPromise) {
+    await completionSchema.loadingPromise;
+    return;
+  }
+
+  const activeDbName = currentDb;
+  const loadPromise = (async () => {
+    const { tables, views } = await sendWorker('get-objects');
+    const columnsByTable = new Map();
+    const tableNames = [...tables, ...views];
+
+    for (const tableName of tableNames) {
+      try {
+        const pragmaResult = await sendWorker('exec', {
+          sql: `PRAGMA table_info([${escapeSqlIdentifier(tableName)}]);`,
+        });
+        if (pragmaResult.type !== 'rows') {
+          columnsByTable.set(tableName, []);
+          continue;
+        }
+        const nameIndex = pragmaResult.columns.indexOf('name');
+        if (nameIndex === -1) {
+          columnsByTable.set(tableName, []);
+          continue;
+        }
+        const columns = pragmaResult.rows
+          .map((row) => row[nameIndex])
+          .filter((column) => typeof column === 'string');
+        columnsByTable.set(tableName, columns);
+      } catch {
+        columnsByTable.set(tableName, []);
+      }
+    }
+
+    if (currentDb !== activeDbName) return;
+
+    completionSchema.dbName = activeDbName;
+    completionSchema.tables = tables;
+    completionSchema.views = views;
+    completionSchema.columnsByTable = columnsByTable;
+  })();
+
+  completionSchema.loadingPromise = loadPromise;
+  try {
+    await loadPromise;
+  } finally {
+    completionSchema.loadingPromise = null;
+  }
+}
+
+function buildCompletionOptions(prefix = '') {
+  const normalizedPrefix = prefix.toLowerCase();
+  const options = [];
+  const seen = new Set();
+  const addOption = (label, type, detail) => {
+    const key = `${type}:${label}`;
+    if (seen.has(key)) return;
+    if (normalizedPrefix && !label.toLowerCase().startsWith(normalizedPrefix)) return;
+    seen.add(key);
+    options.push({ label, type, detail });
+  };
+
+  for (const keyword of SQL_KEYWORDS) addOption(keyword, 'keyword', 'SQL');
+  for (const table of completionSchema.tables) addOption(table, 'class', 'table');
+  for (const view of completionSchema.views) addOption(view, 'class', 'view');
+  for (const [tableName, columns] of completionSchema.columnsByTable.entries()) {
+    for (const columnName of columns) {
+      addOption(columnName, 'property', tableName);
+    }
+  }
+
+  return options;
+}
+
+async function sqlCompletionSource(context) {
+  const word = context.matchBefore(/[\w$]*/);
+  if (!word) return null;
+  if (!context.explicit && word.from === word.to) return null;
+
+  // Fast check: don't show completions inside comments
+  // Only parse syntax tree if we might be in a comment
+  const line = context.state.doc.lineAt(context.pos);
+  const lineText = line.text.trimStart();
+  if (lineText.startsWith('--')) return null;
+
+  // if (currentDb && completionSchema.dbName !== currentDb) {
+  //   if (context.explicit) await refreshCompletionSchema();
+  //   else if (!completionSchema.loadingPromise) void refreshCompletionSchema();
+  // }
+
+  const options = buildCompletionOptions(word.text);
+  return {
+    from: word.from,
+    options,
+    validFor: /[\w$]*/,
+  };
+}
 
 // ===== Worker =====
 const worker = new Worker('/js/sqlite-worker.js', { type: 'module' });
@@ -305,6 +478,25 @@ function initCodeMirrorEditor() {
           ...defaultKeymap,
           ...historyKeymap,
           {
+            key: 'Tab',
+            run: (view) => {
+              if (ENABLE_SQL_AUTOCOMPLETE && completionStatus(view.state) === 'active') {
+                return acceptCompletion(view);
+              }
+              return indentWithTab.run(view);
+            },
+          },
+          {
+            key: 'Enter',
+            run: (view) => {
+              if (ENABLE_SQL_AUTOCOMPLETE && completionStatus(view.state) === 'active') {
+                return acceptCompletion(view);
+              }
+              return false;
+            },
+          },
+          ...(ENABLE_SQL_AUTOCOMPLETE ? completionKeymap : []),
+          {
             key: 'Mod-Enter',
             run: () => {
               showTab(resultsTabEl);
@@ -314,6 +506,14 @@ function initCodeMirrorEditor() {
           },
         ]),
         sql(),
+        ...(ENABLE_SQL_AUTOCOMPLETE
+          ? [
+              autocompletion({
+                activateOnTyping: true,
+                override: [sqlCompletionSource],
+              }),
+            ]
+          : []),
         syntaxHighlighting(sqlHighlightStyle),
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
@@ -323,6 +523,13 @@ function initCodeMirrorEditor() {
         }),
       ],
     }),
+  });
+
+  // Ensure editor focuses when clicked anywhere
+  editorHost.addEventListener('click', () => {
+    if (!sqlEditorView.hasFocus) {
+      sqlEditorView.focus();
+    }
   });
 }
 
@@ -383,6 +590,7 @@ async function selectDatabase(name) {
     renderHistory();
     clearResults();
     showTab(resultsTabEl);
+    await refreshCompletionSchema();
   } catch (err) {
     setStatus('Open failed: ' + err.message, true);
   }
@@ -395,6 +603,7 @@ async function confirmDeleteDb(name) {
     if (name === currentDb) {
       await sendWorker('close');
       currentDb = null;
+      clearCompletionSchema();
       objectsSection.classList.add('d-none');
       clearResults();
       setStatus('');

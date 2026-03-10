@@ -116,6 +116,30 @@
     border: none;
     border-radius: 0;
     background-color: $body-bg;
+    cursor: text;
+    pointer-events: auto;
+
+    .cm-content {
+      caret-color: var(--bs-body-color);
+      cursor: text;
+      pointer-events: auto;
+    }
+
+    .cm-line {
+      cursor: text;
+      position: relative;
+      pointer-events: auto;
+    }
+
+    .cm-cursor {
+      border-left: 1.2px solid var(--bs-body-color);
+      margin-left: -0.6px;
+      pointer-events: none;
+    }
+
+    &.cm-focused .cm-cursor {
+      border-left-color: var(--bs-primary);
+    }
   }
 
   .cm-scroller {
@@ -149,6 +173,24 @@
   .cm-tok-name,
   .cm-tok-type {
     color: var(--bs-emphasis-color);
+  }
+
+  .cm-tooltip-autocomplete {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.375rem;
+    background: var(--bs-body-bg);
+    box-shadow: $box-shadow;
+    font-family: $font-family-monospace;
+    font-size: 0.8rem;
+  }
+
+  .cm-tooltip-autocomplete ul li {
+    padding: 0.25rem 0.5rem;
+  }
+
+  .cm-tooltip-autocomplete ul li[aria-selected='true'] {
+    background: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary-text-emphasis);
   }
 }
 
