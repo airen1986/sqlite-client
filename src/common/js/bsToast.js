@@ -11,10 +11,26 @@
  */
 
 const VARIANT_MAP = {
-  success: { bg: 'bg-success', icon: '&#10003;', label: 'Success' },
-  danger: { bg: 'bg-danger', icon: '&#10007;', label: 'Error' },
-  warning: { bg: 'bg-warning', icon: '&#9888;', label: 'Warning' },
-  info: { bg: 'bg-info', icon: '&#8505;', label: 'Info' },
+  success: {
+    bg: 'bg-success',
+    icon: '<i class="fa-solid fa-check" aria-hidden="true"></i>',
+    label: 'Success',
+  },
+  danger: {
+    bg: 'bg-danger',
+    icon: '<i class="fa-solid fa-xmark" aria-hidden="true"></i>',
+    label: 'Error',
+  },
+  warning: {
+    bg: 'bg-warning',
+    icon: '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>',
+    label: 'Warning',
+  },
+  info: {
+    bg: 'bg-info',
+    icon: '<i class="fa-solid fa-circle-info" aria-hidden="true"></i>',
+    label: 'Info',
+  },
 };
 
 let container = null;

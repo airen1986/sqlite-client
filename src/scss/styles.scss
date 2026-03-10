@@ -1,14 +1,10 @@
 @import 'variables';
 
-// Bootstrap + Icons
+// Bootstrap
 @import 'bootstrap/scss/bootstrap';
 
-// Fix icon placement
-body .bi::before,
-[class^='bi-']::before,
-[class*=' bi-']::before {
-  vertical-align: sub;
-}
+// Font Awesome
+@import '@fortawesome/fontawesome-free/css/all.min.css';
 
 // Import fonts
 @import 'fonts';

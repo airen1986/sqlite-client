@@ -11,7 +11,6 @@ import { $, on } from './dom';
 import { toastSuccess, toastError, toastInfo, confirm } from './toast';
 import {
   listDatabases,
-  saveToOPFS,
   deleteFromOPFS,
   opfsPath,
   copyToClipboard,
@@ -53,11 +52,11 @@ worker.onerror = (e) => {
   setStatus('Worker error: ' + (e.message || 'Unknown error'), true);
 };
 
-function sendWorker(type, payload = {}) {
+function sendWorker(type, payload = {}, transferables = []) {
   return new Promise((resolve, reject) => {
     const id = ++msgIdCounter;
     pendingMessages.set(id, { resolve, reject });
-    worker.postMessage({ id, type, payload });
+    worker.postMessage({ id, type, payload }, transferables);
   });
 }
 
@@ -89,6 +88,7 @@ const resultsMessage = $('#results-message');
 const ddlObjectName = $('#ddl-object-name');
 const ddlCode = $('#ddl-code');
 const ddlCopyBtn = $('#ddl-copy-btn');
+const ddlCountBtn = $('#ddl-count-btn');
 const ddlQueryBtn = $('#ddl-query-btn');
 const apiKeyInput = $('#api-key-input');
 const saveSettingsBtn = $('#save-settings-btn');
@@ -129,7 +129,7 @@ async function refreshDbList() {
         'list-group-item d-flex align-items-center justify-content-between' +
         (name === currentDb ? ' active' : '');
       li.innerHTML = `<span class="db-name text-truncate" title="${esc(name)}">${esc(name)}</span>
-        <button class="db-delete" title="Delete database">&times;</button>`;
+        <button class="db-delete" title="Delete database"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>`;
       on(li.querySelector('.db-name'), 'click', () => selectDatabase(name));
       on(li.querySelector('.db-delete'), 'click', (e) => {
         e.stopPropagation();
@@ -184,7 +184,8 @@ async function handleUpload(files) {
     setStatus(`Uploading ${file.name}...`);
     try {
       const buf = await file.arrayBuffer();
-      await saveToOPFS(file.name, buf);
+      // Import via worker using OpfsDb.importDb() which handles WAL-mode databases
+      await sendWorker('import', { filename: opfsPath(file.name), buffer: buf }, [buf]);
       toastSuccess(`Uploaded ${file.name}`);
     } catch (err) {
       toastError(`Upload failed: ${file.name} — ${err.message}`);
@@ -228,6 +229,7 @@ async function showDDL(objectName) {
     const { ddl } = await sendWorker('get-ddl', { name: objectName });
     ddlObjectName.textContent = objectName;
     ddlCode.textContent = ddl || '-- No DDL available';
+    ddlCountBtn.innerHTML = '<i class="fa-solid fa-hashtag me-1" aria-hidden="true"></i>Count';
     showTab(ddlTabEl);
   } catch (err) {
     toastError('DDL error: ' + err.message);
@@ -290,7 +292,7 @@ function renderEditorTabs() {
     if (editorTabs.length > 1) {
       const close = document.createElement('span');
       close.className = 'editor-tab-close';
-      close.innerHTML = '&times;';
+      close.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
       close.title = 'Close tab';
       on(close, 'click', (e) => {
         e.stopPropagation();
@@ -425,8 +427,8 @@ function renderHistory() {
       <td class="hist-time-cell">${timeStr}</td>
       <td class="text-center">
         <div class="d-flex gap-1 justify-content-center">
-          <button class="btn btn-outline-dark btn-sm hist-use-btn" title="Execute">&#x25B6;</button>
-          <button class="btn btn-outline-dark btn-sm hist-copy-btn" title="Copy to clipboard">&#x1F4CB;</button>
+          <button class="btn btn-outline-dark btn-sm hist-use-btn" title="Execute"><i class="fa-solid fa-play" aria-hidden="true"></i></button>
+          <button class="btn btn-outline-dark btn-sm hist-copy-btn" title="Copy to clipboard"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
         </div>
       </td>`;
     on(tr.querySelector('.hist-use-btn'), 'click', (e) => {
@@ -499,6 +501,22 @@ function bindEvents() {
   // DDL copy
   on(ddlCopyBtn, 'click', async () => {
     await copyToClipboard(ddlCode.textContent);
+  });
+
+  // DDL record count
+  on(ddlCountBtn, 'click', async () => {
+    const name = ddlObjectName.textContent;
+    if (!name || !currentDb) return;
+    try {
+      ddlCountBtn.disabled = true;
+      const result = await sendWorker('exec', { sql: `SELECT COUNT(*) AS cnt FROM [${name}];` });
+      const count = result.rows?.[0]?.[0] ?? '?';
+      ddlCountBtn.innerHTML = `<i class="fa-solid fa-hashtag me-1" aria-hidden="true"></i>${Number(count).toLocaleString()} rows`;
+    } catch (err) {
+      toastError('Count failed: ' + err.message);
+    } finally {
+      ddlCountBtn.disabled = false;
+    }
   });
 
   // DDL query top 100

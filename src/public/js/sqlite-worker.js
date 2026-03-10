@@ -84,6 +84,22 @@ function handleGetDDL(objectName) {
   return { name: objectName, ddl: rows[0][0] };
 }
 
+async function handleImport(filename, arrayBuffer) {
+  // Close any open DB first
+  if (db) {
+    try {
+      db.close();
+    } catch {
+      /* ignore */
+    }
+    db = null;
+  }
+  // importDb writes to OPFS and automatically clears the WAL-mode flag,
+  // which avoids SQLITE_CANTOPEN for WAL-mode databases.
+  await sqlite3.oo1.OpfsDb.importDb(filename, arrayBuffer);
+  return { ok: true };
+}
+
 function handleClose() {
   if (db) {
     db.close();
@@ -112,6 +128,9 @@ self.onmessage = async (e) => {
         break;
       case 'get-ddl':
         result = handleGetDDL(payload.name);
+        break;
+      case 'import':
+        result = await handleImport(payload.filename, payload.buffer);
         break;
       case 'close':
         result = handleClose();

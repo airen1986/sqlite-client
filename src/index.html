@@ -20,7 +20,8 @@
         <div class="d-flex align-items-center gap-2">
           <span id="status-text" class="text-muted text-sm me-2"></span>
           <label class="btn btn-dark btn-sm mb-0" title="Upload database files">
-            &#x2B06; Upload DB
+            <i class="fa-solid fa-upload me-1" aria-hidden="true"></i>
+            Upload DB
             <input type="file" id="db-upload" multiple accept=".db,.sqlite,.sqlite3" hidden />
           </label>
           <button
@@ -30,7 +31,7 @@
             data-bs-toggle="modal"
             data-bs-target="#settingsModal"
           >
-            &#x2699;
+            <i class="fa-solid fa-gear" aria-hidden="true"></i>
           </button>
         </div>
       </div>
@@ -113,14 +114,16 @@
               class="btn btn-sm btn-outline-dark ms-1 my-1 flex-shrink-0"
               title="New tab"
             >
-              +
+              <i class="fa-solid fa-plus" aria-hidden="true"></i>
             </button>
           </div>
           <div class="d-flex align-items-center gap-2 px-3 py-2 bg-white border-bottom">
             <button id="run-btn" class="btn btn-success btn-sm" title="Execute query (Ctrl+Enter)">
-              &#x25B6; Run
+              <i class="fa-solid fa-play me-1" aria-hidden="true"></i>
+              Run
             </button>
-            <button id="clear-btn" class="btn btn-outline-dark btn-sm" title="Clear editor">
+            <button id="clear-btn" class="btn btn-dark btn-sm" title="Clear editor">
+              <i class="fa-solid fa-eraser me-1" aria-hidden="true"></i>
               Clear
             </button>
           </div>
@@ -183,17 +186,15 @@
               >
                 <button
                   id="copy-results-btn"
-                  class="btn btn-outline-dark btn-sm"
+                  class="btn btn-dark btn-sm"
                   title="Copy (tab-separated)"
                 >
-                  &#x1F4CB; Copy
+                  <i class="fa-regular fa-copy me-1" aria-hidden="true"></i>
+                  Copy
                 </button>
-                <button
-                  id="export-csv-btn"
-                  class="btn btn-outline-dark btn-sm"
-                  title="Export as CSV"
-                >
-                  &#x1F4E5; CSV
+                <button id="export-csv-btn" class="btn btn-dark btn-sm" title="Export as CSV">
+                  <i class="fa-solid fa-file-csv me-1" aria-hidden="true"></i>
+                  CSV
                 </button>
                 <span id="row-count" class="ms-auto text-muted text-sm"></span>
               </div>
@@ -220,13 +221,19 @@
                 <strong id="ddl-object-name" class="text-primary font-monospace"></strong>
                 <button
                   id="ddl-query-btn"
-                  class="btn btn-outline-dark btn-sm ms-auto"
+                  class="btn btn-dark btn-sm ms-auto"
                   title="SELECT first 100 rows in a new tab"
                 >
-                  &#x25B6; Top 100
+                  <i class="fa-solid fa-play me-1" aria-hidden="true"></i>
+                  Top 100
                 </button>
-                <button id="ddl-copy-btn" class="btn btn-outline-dark btn-sm" title="Copy DDL">
-                  &#x1F4CB; Copy DDL
+                <button id="ddl-count-btn" class="btn btn-dark btn-sm" title="Get record count">
+                  <i class="fa-solid fa-hashtag me-1" aria-hidden="true"></i>
+                  Count
+                </button>
+                <button id="ddl-copy-btn" class="btn btn-dark btn-sm" title="Copy DDL">
+                  <i class="fa-regular fa-copy me-1" aria-hidden="true"></i>
+                  Copy DDL
                 </button>
               </div>
               <div id="ddl-container" class="flex-grow-1 overflow-auto">

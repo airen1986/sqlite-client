@@ -12,6 +12,7 @@ This document defines coding conventions for AI agents working in this repositor
 
 - **Build tool**: Vite
 - **CSS**: Bootstrap 5.3 with custom SCSS variables (`src/scss/_variables.scss`)
+- **Icons**: Font Awesome 6 (free) — use `<i class="fa-solid fa-*">`, `<i class="fa-regular fa-*">`, or `<i class="fa-brands fa-*">` classes. Do NOT use Bootstrap Icons or inline SVGs.
 - **JS**: Vanilla ES modules (`type: "module"`)
 - **Alerts/Toasts**: SweetAlert2 (already installed) and Bootstrap native toasts
 - **Package manager**: npm
@@ -24,7 +25,8 @@ This document defines coding conventions for AI agents working in this repositor
 - Shared/reusable JS utilities go in `src/common/js/`.
 - Shared/reusable CSS goes in `src/common/css/`.
 - SCSS variables and component overrides go in `src/scss/`.
-- Static assets (images, fonts, icons) go in `src/public/`.
+- Static assets (images, fonts) go in `src/public/`.
+- Icons: use Font Awesome classes (`fa-solid`, `fa-regular`, `fa-brands`). Do NOT add icon image files or SVG sprite sheets.
 
 ## Styling Rules
 
