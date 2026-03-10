@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SCL-SQL</title>
+    <title>SQLite Client</title>
     <meta name="description" content="Browser-based SQLite client with OPFS persistence." />
     <meta name="theme-color" content="#141414" />
     <link rel="icon" type="image/svg+xml" href="/scc.svg" />
@@ -14,7 +14,7 @@
       <div class="container-fluid">
         <a class="navbar-brand d-flex align-items-center" href="/">
           <img src="/scc.svg" alt="Logo" width="24" height="24" />
-          <span class="fs-5 fw-bold text-dark ms-3">SCL-SQL</span>
+          <span class="fs-5 fw-bold text-dark ms-3">SQLite Client</span>
         </a>
 
         <div class="d-flex align-items-center gap-2">
@@ -225,11 +225,15 @@
                   title="SELECT first 100 rows in a new tab"
                 >
                   <i class="fa-solid fa-play me-1" aria-hidden="true"></i>
-                  Top 100
+                  Top 1000
                 </button>
                 <button id="ddl-count-btn" class="btn btn-dark btn-sm" title="Get record count">
                   <i class="fa-solid fa-hashtag me-1" aria-hidden="true"></i>
                   Count
+                </button>
+                <button id="ddl-export-csv-btn" class="btn btn-dark btn-sm" title="Export entire table to CSV">
+                  <i class="fa-solid fa-file-csv me-1" aria-hidden="true"></i>
+                  Export CSV
                 </button>
                 <button id="ddl-copy-btn" class="btn btn-dark btn-sm" title="Copy DDL">
                   <i class="fa-regular fa-copy me-1" aria-hidden="true"></i>

@@ -1,5 +1,5 @@
 /**
- * SCL-SQL main application logic.
+ * SQLite client main application logic.
  *
  * Uses template utilities:
  *   - dom.js ($, on) for DOM helpers
@@ -17,6 +17,8 @@ import {
   resultsToTSV,
   resultsToCSV,
   downloadCSV,
+  downloadBlob,
+  rowToCSVLine,
   getHistory,
   addToHistory,
   getSettings,
@@ -27,8 +29,11 @@ import {
 let currentDb = null;
 let lastColumns = null;
 let lastRows = null;
+let renderedRowsCount = 0;
+let lazyRows = null;
 let msgIdCounter = 0;
 const pendingMessages = new Map();
+const RESULTS_CHUNK_SIZE = 1000;
 
 // ===== Editor Tabs State =====
 let tabIdCounter = 0;
@@ -81,6 +86,7 @@ const copyResultsBtn = $('#copy-results-btn');
 const exportCsvBtn = $('#export-csv-btn');
 const rowCount = $('#row-count');
 const resultsPlaceholder = $('#results-placeholder');
+const resultsContainer = $('#results-container');
 const resultsTableWrap = $('#results-table-wrap');
 const resultsThead = $('#results-thead');
 const resultsTbody = $('#results-tbody');
@@ -89,6 +95,7 @@ const ddlObjectName = $('#ddl-object-name');
 const ddlCode = $('#ddl-code');
 const ddlCopyBtn = $('#ddl-copy-btn');
 const ddlCountBtn = $('#ddl-count-btn');
+const ddlExportCsvBtn = $('#ddl-export-csv-btn');
 const ddlQueryBtn = $('#ddl-query-btn');
 const apiKeyInput = $('#api-key-input');
 const saveSettingsBtn = $('#save-settings-btn');
@@ -314,6 +321,7 @@ async function executeQuery() {
     return;
   }
 
+  showResultsLoader();
   setStatus('Executing...');
   runBtn.disabled = true;
   const start = performance.now();
@@ -352,7 +360,22 @@ async function executeQuery() {
 }
 
 // ===== Results Rendering =====
+function showResultsLoader() {
+  lazyRows = null;
+  renderedRowsCount = 0;
+  resultsTableWrap.classList.add('d-none');
+  resultsToolbar.classList.add('d-none');
+  resultsToolbar.classList.remove('d-flex');
+  resultsMessage.classList.add('d-none');
+  resultsPlaceholder.classList.remove('d-none');
+  resultsPlaceholder.className = 'd-flex align-items-center justify-content-center gap-2 text-muted p-4';
+  resultsPlaceholder.innerHTML =
+    '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span><span>Running query...</span>';
+}
+
 function renderResultsTable(columns, rows) {
+  resultsPlaceholder.className = 'text-center text-muted fst-italic p-4';
+  resultsPlaceholder.textContent = 'Run a query to see results';
   resultsPlaceholder.classList.add('d-none');
   resultsMessage.classList.add('d-none');
   resultsTableWrap.classList.remove('d-none');
@@ -361,7 +384,21 @@ function renderResultsTable(columns, rows) {
   rowCount.textContent = `${rows.length} row${rows.length !== 1 ? 's' : ''}`;
 
   resultsThead.innerHTML = '<tr>' + columns.map((c) => `<th>${esc(c)}</th>`).join('') + '</tr>';
-  resultsTbody.innerHTML = rows
+  resultsTbody.innerHTML = '';
+  lazyRows = rows;
+  renderedRowsCount = 0;
+  renderNextResultsChunk();
+  while (lazyRows && renderedRowsCount < lazyRows.length && resultsContainer.scrollHeight <= resultsContainer.clientHeight) {
+    renderNextResultsChunk();
+  }
+}
+
+function renderNextResultsChunk() {
+  if (!lazyRows || renderedRowsCount >= lazyRows.length) return;
+
+  const end = Math.min(renderedRowsCount + RESULTS_CHUNK_SIZE, lazyRows.length);
+  const chunkHtml = lazyRows
+    .slice(renderedRowsCount, end)
     .map(
       (row) =>
         '<tr>' +
@@ -374,9 +411,26 @@ function renderResultsTable(columns, rows) {
         '</tr>'
     )
     .join('');
+
+  resultsTbody.insertAdjacentHTML('beforeend', chunkHtml);
+  renderedRowsCount = end;
+}
+
+function onResultsScroll() {
+  if (!lazyRows || renderedRowsCount >= lazyRows.length) return;
+  const threshold = 150;
+  const atBottom =
+    resultsContainer.scrollTop + resultsContainer.clientHeight >= resultsContainer.scrollHeight - threshold;
+  if (atBottom) {
+    renderNextResultsChunk();
+  }
 }
 
 function showMessage(text, isError = false) {
+  lazyRows = null;
+  renderedRowsCount = 0;
+  resultsPlaceholder.className = 'text-center text-muted fst-italic p-4';
+  resultsPlaceholder.textContent = 'Run a query to see results';
   resultsPlaceholder.classList.add('d-none');
   resultsTableWrap.classList.add('d-none');
   resultsToolbar.classList.add('d-none');
@@ -389,6 +443,10 @@ function showMessage(text, isError = false) {
 function clearResults() {
   lastColumns = null;
   lastRows = null;
+  lazyRows = null;
+  renderedRowsCount = 0;
+  resultsPlaceholder.className = 'text-center text-muted fst-italic p-4';
+  resultsPlaceholder.textContent = 'Run a query to see results';
   resultsPlaceholder.classList.remove('d-none');
   resultsTableWrap.classList.add('d-none');
   resultsToolbar.classList.add('d-none');
@@ -403,6 +461,72 @@ function showTab(tabEl) {
   if (tabEl && window.bootstrap) {
     const tab = new window.bootstrap.Tab(tabEl);
     tab.show();
+  }
+}
+
+// ===== Table Export =====
+async function exportTableToCSV(tableName) {
+  const CHUNK_SIZE = 10000;
+  
+  try {
+    // Disable button and show loader
+    ddlExportCsvBtn.disabled = true;
+    const originalHTML = ddlExportCsvBtn.innerHTML;
+    ddlExportCsvBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Exporting...';
+    
+    // Get metadata and total count
+    const streamInfo = await sendWorker('export-stream', { tableName, chunkSize: CHUNK_SIZE });
+    const { columns, totalRows } = streamInfo;
+    
+    if (totalRows === 0) {
+      toastInfo('Table is empty');
+      return;
+    }
+    
+    // Build CSV incrementally with Blob chunks to avoid memory issues
+    const csvParts = [];
+    
+    // Add header
+    csvParts.push(rowToCSVLine(columns));
+    
+    // Stream chunks
+    let offset = 0;
+    let processedRows = 0;
+    
+    while (offset < totalRows) {
+      const chunkResult = await sendWorker('export-chunk', {
+        tableName,
+        offset,
+        chunkSize: CHUNK_SIZE,
+      });
+      
+      // Convert rows to CSV lines
+      for (const row of chunkResult.rows) {
+        csvParts.push(rowToCSVLine(row));
+      }
+      
+      offset += chunkResult.rows.length;
+      processedRows += chunkResult.rows.length;
+      
+      // Update button with progress
+      const percent = Math.floor((processedRows / totalRows) * 100);
+      ddlExportCsvBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Exporting... ${percent}%`;
+      
+      if (!chunkResult.hasMore) break;
+    }
+    
+    // Create and download the blob
+    const blob = new Blob(csvParts, { type: 'text/csv;charset=utf-8;' });
+    const filename = `${tableName}_export.csv`;
+    downloadBlob(blob, filename);
+    
+    toastSuccess(`Exported ${processedRows.toLocaleString()} rows to ${filename}`);
+    ddlExportCsvBtn.innerHTML = originalHTML;
+  } catch (err) {
+    toastError('Export failed: ' + err.message);
+    ddlExportCsvBtn.innerHTML = '<i class="fa-solid fa-file-csv me-1" aria-hidden="true"></i>Export CSV';
+  } finally {
+    ddlExportCsvBtn.disabled = false;
   }
 }
 
@@ -436,6 +560,7 @@ function renderHistory() {
       sqlEditor.value = entry.sql;
       const cur = editorTabs.find((t) => t.id === activeTabId);
       if (cur) cur.sql = entry.sql;
+      showTab(resultsTabEl);
       executeQuery();
     });
     on(tr.querySelector('.hist-copy-btn'), 'click', (e) => {
@@ -455,7 +580,11 @@ function bindEvents() {
   });
 
   // Run query
-  on(runBtn, 'click', executeQuery);
+  on(runBtn, 'click', () => {
+    showTab(resultsTabEl);
+    executeQuery();
+  });
+  on(resultsContainer, 'scroll', onResultsScroll);
   on(sqlEditor, 'keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
@@ -503,16 +632,25 @@ function bindEvents() {
     await copyToClipboard(ddlCode.textContent);
   });
 
+  // DDL export CSV
+  on(ddlExportCsvBtn, 'click', async () => {
+    const name = ddlObjectName.textContent;
+    if (!name || !currentDb) return;
+    await exportTableToCSV(name);
+  });
+
   // DDL record count
   on(ddlCountBtn, 'click', async () => {
     const name = ddlObjectName.textContent;
     if (!name || !currentDb) return;
     try {
       ddlCountBtn.disabled = true;
+      ddlCountBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Counting...';
       const result = await sendWorker('exec', { sql: `SELECT COUNT(*) AS cnt FROM [${name}];` });
       const count = result.rows?.[0]?.[0] ?? '?';
       ddlCountBtn.innerHTML = `<i class="fa-solid fa-hashtag me-1" aria-hidden="true"></i>${Number(count).toLocaleString()} rows`;
     } catch (err) {
+      ddlCountBtn.innerHTML = '<i class="fa-solid fa-hashtag me-1" aria-hidden="true"></i>Count';
       toastError('Count failed: ' + err.message);
     } finally {
       ddlCountBtn.disabled = false;
@@ -523,7 +661,7 @@ function bindEvents() {
   on(ddlQueryBtn, 'click', () => {
     const name = ddlObjectName.textContent;
     if (!name) return;
-    const sql = `SELECT * FROM [${name}] LIMIT 100;`;
+    const sql = `SELECT * FROM [${name}] LIMIT 1000;`;
     addEditorTab(sql);
     executeQuery();
   });

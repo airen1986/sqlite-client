@@ -1,5 +1,5 @@
 /**
- * SCL-SQL utility functions.
+ * SQLite client utility functions.
  *
  * OPFS helpers, clipboard, CSV/TSV conversion, query history, settings.
  */
@@ -100,6 +100,40 @@ export function downloadCSV(csvString, filename) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Download Blob as file
+ */
+export function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Escape and format a cell value for CSV
+ */
+function escapeCSVCell(val) {
+  if (val === null || val === undefined) return '';
+  const s = String(val);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+/**
+ * Convert row array to CSV line
+ */
+export function rowToCSVLine(row) {
+  return row.map(escapeCSVCell).join(',') + '\n';
 }
 
 // ===== Query History =====

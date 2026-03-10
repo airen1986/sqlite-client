@@ -100,6 +100,34 @@ async function handleImport(filename, arrayBuffer) {
   return { ok: true };
 }
 
+function handleExportStream(tableName, chunkSize = 10000) {
+  if (!db) throw new Error('No database is open');
+  
+  // Get column names
+  const columnNames = [];
+  db.exec(`SELECT * FROM [${tableName}] LIMIT 0`, { columnNames });
+  
+  // Get total count for progress
+  const countRows = db.exec(`SELECT COUNT(*) as cnt FROM [${tableName}]`, {
+    returnValue: 'resultRows',
+    rowMode: 'array',
+  });
+  const totalRows = countRows[0]?.[0] || 0;
+  
+  return { columns: columnNames, totalRows };
+}
+
+function handleExportChunk(tableName, offset, chunkSize = 10000) {
+  if (!db) throw new Error('No database is open');
+  
+  const rows = db.exec(
+    `SELECT * FROM [${tableName}] LIMIT ${chunkSize} OFFSET ${offset}`,
+    { returnValue: 'resultRows', rowMode: 'array' }
+  );
+  
+  return { rows, hasMore: rows.length === chunkSize };
+}
+
 function handleClose() {
   if (db) {
     db.close();
@@ -131,6 +159,12 @@ self.onmessage = async (e) => {
         break;
       case 'import':
         result = await handleImport(payload.filename, payload.buffer);
+        break;
+      case 'export-stream':
+        result = handleExportStream(payload.tableName, payload.chunkSize);
+        break;
+      case 'export-chunk':
+        result = handleExportChunk(payload.tableName, payload.offset, payload.chunkSize);
         break;
       case 'close':
         result = handleClose();
