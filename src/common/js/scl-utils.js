@@ -35,6 +35,12 @@ export async function deleteFromOPFS(name) {
   await dir.removeEntry(name);
 }
 
+export async function readFromOPFS(name) {
+  const dir = await getDbDir();
+  const fileHandle = await dir.getFileHandle(name);
+  return fileHandle.getFile();
+}
+
 /**
  * Returns the OPFS path that the worker should use to open the DB.
  * The OpfsDb constructor uses paths relative to OPFS root.

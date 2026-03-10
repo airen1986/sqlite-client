@@ -33,6 +33,13 @@
     font-size: 0.8rem;
   }
 
+  .db-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+  }
+
+  .db-download,
   .db-delete {
     visibility: hidden;
     background: none;
@@ -47,6 +54,11 @@
     }
   }
 
+  .db-download:hover {
+    color: var(--bs-primary);
+  }
+
+  .list-group-item:hover .db-download,
   .list-group-item:hover .db-delete {
     visibility: visible;
   }

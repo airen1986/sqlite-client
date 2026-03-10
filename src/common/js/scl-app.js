@@ -23,6 +23,7 @@ import { sql } from '@codemirror/lang-sql';
 import { toastSuccess, toastError, toastInfo, confirm } from './toast';
 import {
   listDatabases,
+  readFromOPFS,
   deleteFromOPFS,
   opfsPath,
   copyToClipboard,
@@ -565,8 +566,15 @@ async function refreshDbList() {
         'list-group-item d-flex align-items-center justify-content-between' +
         (name === currentDb ? ' active' : '');
       li.innerHTML = `<span class="db-name text-truncate" title="${esc(name)}">${esc(name)}</span>
-        <button class="db-delete" title="Delete database"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>`;
+        <div class="db-actions">
+          <button class="db-download" title="Download database"><i class="fa-solid fa-download" aria-hidden="true"></i></button>
+          <button class="db-delete" title="Delete database"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+        </div>`;
       on(li.querySelector('.db-name'), 'click', () => selectDatabase(name));
+      on(li.querySelector('.db-download'), 'click', async (e) => {
+        e.stopPropagation();
+        await downloadDatabase(name);
+      });
       on(li.querySelector('.db-delete'), 'click', (e) => {
         e.stopPropagation();
         confirmDeleteDb(name);
@@ -613,6 +621,16 @@ async function confirmDeleteDb(name) {
     await refreshDbList();
   } catch (err) {
     toastError('Delete failed: ' + err.message);
+  }
+}
+
+async function downloadDatabase(name) {
+  try {
+    const file = await readFromOPFS(name);
+    downloadBlob(file, name);
+    toastSuccess(`Downloaded ${name}`);
+  } catch (err) {
+    toastError('Download failed: ' + err.message);
   }
 }
 

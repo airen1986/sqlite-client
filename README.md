@@ -1,145 +1,120 @@
-# Frontend Template
+# SQLite Client
 
-A modern frontend starter template built with **Vite**, **Bootstrap 5**, and **SCSS**.
+Browser-based SQLite client that runs fully in the browser using SQLite WASM + OPFS (Origin Private File System).
 
-## Features
+This project provides a local SQL workspace with persistent databases, query editor, results explorer, DDL view, history, CSV export, and database file management.
 
-- **Vite** — fast dev server and optimized builds
-- **Bootstrap 5.3** — with deep SCSS variable customization (Brutopia theme)
-- **Sass** — modular SCSS architecture with components, layouts, mixins, and utilities
-- **SweetAlert2** — pre-configured toast and dialog helpers
-- **ESLint + Prettier + Stylelint** — linting and formatting out of the box
-- **Multi-page support** — Vite auto-discovers `.html` files in `src/`
-- **GitHub Actions CI** — build, lint, and format checks on every PR
+## Highlights
+
+- In-browser SQLite execution with `@sqlite.org/sqlite-wasm`
+- OPFS-backed persistence (databases remain available across sessions)
+- Modern SQL editor powered by CodeMirror 6 with syntax highlighting and autocomplete
+- Multi-tab SQL editing and `Ctrl/Cmd + Enter` query execution
+- Results grid with chunked rendering for large datasets
+- DDL inspection for tables/views
+- CSV export (query results and full-table streaming export)
+- Database upload, download, and delete from sidebar
+- Query history and local settings persistence
+
+## Tech Stack
+
+- Vite 5
+- Vanilla JavaScript (ES modules)
+- Bootstrap 5 + SCSS theme
+- Font Awesome (icons)
+- SweetAlert2 (toasts/confirm dialogs)
+- SQLite WASM + Web Worker
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 20+ (see `.nvmrc`)
+- Node.js `>=22`
 - npm
 
-### Installation
+### Install
 
 ```bash
 npm install
 ```
 
-Copy the example environment file and adjust as needed:
+`postinstall` runs `scripts/copy-sqlite-wasm.js` to place SQLite WASM assets in the expected public path.
 
-```bash
-cp .env.example src/.env
-```
-
-### Development
+### Run Dev Server
 
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:3000` in your browser.
+Then open the local URL shown by Vite.
 
-### Build for Production
+### Build & Preview
 
 ```bash
 npm run build
-```
-
-Output goes to `dist/`.
-
-### Preview Production Build
-
-```bash
 npm run preview
 ```
 
-## Project Structure
-
-```
-├── src/
-│   ├── common/
-│   │   └── js/
-│   │       ├── api.js           # Fetch-based API client
-│   │       ├── toast.js         # SweetAlert2 toast helpers
-│   │       └── dom.js           # DOM utility helpers
-│   ├── page_assets/
-│   │   └── index/
-│   │       └── js/main.js       # Entry point for index page
-│   ├── public/                  # Static assets (copied as-is)
-│   ├── scss/
-│   │   ├── components/          # Bootstrap component overrides
-│   │   ├── layouts/             # Page layout styles
-│   │   ├── mixins/              # SCSS mixins
-│   │   ├── _variables.scss      # Bootstrap + theme variables
-│   │   ├── _brutopia.scss       # Component import manifest
-│   │   ├── _fonts.scss          # Self-hosted font declarations
-│   │   ├── _utilities.scss      # Custom utility classes
-│   │   └── styles.scss          # Main SCSS entry point
-│   ├── .env                     # Environment variables (not committed)
-│   └── index.html               # Landing page
-├── .editorconfig
-├── .env.example                 # Environment variable template
-├── .github/workflows/ci.yml    # CI pipeline
-├── .nvmrc                       # Node version
-├── .prettierrc                  # Prettier config
-├── .stylelintrc.json            # Stylelint config
-├── eslint.config.js             # ESLint flat config
-├── LICENSE
-├── package.json
-├── vite.config.js
-└── README.md
-```
-
-## Scripts
+## Available Scripts
 
 | Command | Description |
-|---------|-------------|
+| --- | --- |
 | `npm run dev` | Start Vite dev server |
-| `npm run build` | Production build to `dist/` |
-| `npm run preview` | Preview the production build |
-| `npm run lint` | Lint JavaScript with ESLint |
+| `npm run build` | Create production build |
+| `npm run preview` | Preview production build |
+| `npm run setup` | Copy SQLite WASM runtime files |
+| `npm run lint` | Lint JavaScript files with ESLint |
 | `npm run lint:fix` | Auto-fix ESLint issues |
-| `npm run lint:css` | Lint SCSS with Stylelint |
-| `npm run lint:css:fix` | Auto-fix Stylelint issues |
-| `npm run format` | Format code with Prettier |
-| `npm run format:check` | Check formatting without writing |
+| `npm run format` | Format project files with Prettier |
+| `npm run format:check` | Check formatting only |
 
-## Customization
+## How It Works
 
-### Theme Colors
+1. UI sends commands to a dedicated SQLite worker (`src/public/js/sqlite-worker.js`).
+2. Worker opens/executes against OPFS database files under `/scl-databases`.
+3. Results are returned to the main thread for rendering and export.
+4. Query history/settings are stored in browser local storage.
 
-Edit `src/scss/_variables.scss` to change the color palette:
+## Project Structure
 
-```scss
-$primary:   #141414;
-$secondary: #A8A196;
-$success:   #6fc59a;
-$danger:    #d1503b;
+```text
+src/
+	index.html                     # Main application page
+	common/js/
+		scl-app.js                   # Main app logic and UI orchestration
+		scl-utils.js                 # OPFS, download, CSV, history, settings helpers
+		dom.js                       # DOM helper utilities
+		toast.js                     # SweetAlert2 wrappers
+		bsToast.js                   # Bootstrap native toast helpers
+	page_assets/index/js/main.js   # Entry point imports Bootstrap + styles + app init
+	public/js/sqlite-worker.js     # SQLite worker runtime
+	public/sqlite-wasm/            # WASM runtime files copied on setup/postinstall
+	scss/                          # Theme and component styles
+scripts/
+	copy-sqlite-wasm.js            # Copies SQLite WASM assets into public folder
 ```
 
-### Adding a New Page
+## Usage Notes
 
-1. Create `src/my-page.html`
-2. Create `src/page_assets/my-page/js/main.js` for page-specific JS
-3. Vite will auto-discover the HTML file — no config changes needed
+- Upload one or more `.db/.sqlite/.sqlite3` files from the top navbar.
+- Select a database in the left sidebar to connect.
+- Use the sidebar actions to download or delete a database file.
+- Use **Run** or `Ctrl/Cmd + Enter` to execute SQL.
+- Use results toolbar to copy TSV or export CSV.
 
-### Environment Variables
+## Environment
 
-All `VITE_`-prefixed variables in `src/.env` are available in JS via `import.meta.env`:
+The project supports Vite-style environment variables (`VITE_*`).
+
+Example access pattern:
 
 ```js
-const apiUrl = import.meta.env.VITE_API_BASE_URL;
+import.meta.env.VITE_API_BASE_URL;
 ```
 
-### JS Utilities
+## Repository
 
-Pre-built helpers are available in `src/common/js/`:
-
-```js
-import api from '@/common/js/api';
-import { toastSuccess } from '@/common/js/toast';
-import { $, on } from '@/common/js/dom';
-```
+- GitHub: https://github.com/airen1986/sqlite-client
 
 ## License
 
