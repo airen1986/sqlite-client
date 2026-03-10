@@ -122,6 +122,34 @@
     font-family: $font-family-monospace;
     line-height: 1.6;
   }
+
+  .cm-tok-keyword {
+    color: var(--bs-primary);
+    font-weight: 600;
+  }
+
+  .cm-tok-string {
+    color: var(--bs-success);
+  }
+
+  .cm-tok-number,
+  .cm-tok-atom {
+    color: var(--bs-info);
+  }
+
+  .cm-tok-comment {
+    color: var(--bs-secondary-color);
+    font-style: italic;
+  }
+
+  .cm-tok-operator {
+    color: var(--bs-danger);
+  }
+
+  .cm-tok-name,
+  .cm-tok-type {
+    color: var(--bs-emphasis-color);
+  }
 }
 
 // Results table

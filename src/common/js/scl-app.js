@@ -11,7 +11,8 @@ import { $, on } from './dom';
 import { EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
-import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { tags as t } from '@lezer/highlight';
 import { sql } from '@codemirror/lang-sql';
 import { toastSuccess, toastError, toastInfo, confirm } from './toast';
 import {
@@ -39,6 +40,17 @@ let lazyRows = null;
 let msgIdCounter = 0;
 const pendingMessages = new Map();
 const RESULTS_CHUNK_SIZE = 1000;
+
+const sqlHighlightStyle = HighlightStyle.define([
+  { tag: [t.keyword, t.definitionKeyword, t.modifier], class: 'cm-tok-keyword' },
+  { tag: [t.string], class: 'cm-tok-string' },
+  { tag: [t.number, t.bool], class: 'cm-tok-number' },
+  { tag: [t.comment], class: 'cm-tok-comment' },
+  { tag: [t.null, t.atom], class: 'cm-tok-atom' },
+  { tag: [t.operator, t.punctuation], class: 'cm-tok-operator' },
+  { tag: [t.variableName, t.propertyName, t.name], class: 'cm-tok-name' },
+  { tag: [t.typeName, t.className], class: 'cm-tok-type' },
+]);
 
 // ===== Editor Tabs State =====
 let tabIdCounter = 0;
@@ -302,7 +314,7 @@ function initCodeMirrorEditor() {
           },
         ]),
         sql(),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        syntaxHighlighting(sqlHighlightStyle),
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
           if (!update.docChanged || activeTabId === null) return;
