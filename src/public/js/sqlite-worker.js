@@ -100,7 +100,7 @@ async function handleImport(filename, arrayBuffer) {
   return { ok: true };
 }
 
-function handleExportStream(tableName, chunkSize = 10000) {
+function handleExportStream(tableName, _chunkSize = 10000) {
   if (!db) throw new Error('No database is open');
   
   // Get column names
