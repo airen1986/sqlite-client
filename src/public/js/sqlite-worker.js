@@ -102,29 +102,29 @@ async function handleImport(filename, arrayBuffer) {
 
 function handleExportStream(tableName, _chunkSize = 10000) {
   if (!db) throw new Error('No database is open');
-  
+
   // Get column names
   const columnNames = [];
   db.exec(`SELECT * FROM [${tableName}] LIMIT 0`, { columnNames });
-  
+
   // Get total count for progress
   const countRows = db.exec(`SELECT COUNT(*) as cnt FROM [${tableName}]`, {
     returnValue: 'resultRows',
     rowMode: 'array',
   });
   const totalRows = countRows[0]?.[0] || 0;
-  
+
   return { columns: columnNames, totalRows };
 }
 
 function handleExportChunk(tableName, offset, chunkSize = 10000) {
   if (!db) throw new Error('No database is open');
-  
-  const rows = db.exec(
-    `SELECT * FROM [${tableName}] LIMIT ${chunkSize} OFFSET ${offset}`,
-    { returnValue: 'resultRows', rowMode: 'array' }
-  );
-  
+
+  const rows = db.exec(`SELECT * FROM [${tableName}] LIMIT ${chunkSize} OFFSET ${offset}`, {
+    returnValue: 'resultRows',
+    rowMode: 'array',
+  });
+
   return { rows, hasMore: rows.length === chunkSize };
 }
 
