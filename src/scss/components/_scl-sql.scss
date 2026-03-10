@@ -110,6 +110,18 @@
     box-shadow: none;
     border-color: transparent;
   }
+
+  .cm-editor {
+    min-height: 100px;
+    border: none;
+    border-radius: 0;
+    background-color: $body-bg;
+  }
+
+  .cm-scroller {
+    font-family: $font-family-monospace;
+    line-height: 1.6;
+  }
 }
 
 // Results table

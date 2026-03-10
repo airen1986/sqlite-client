@@ -8,6 +8,11 @@
  */
 
 import { $, on } from './dom';
+import { EditorState } from '@codemirror/state';
+import { EditorView, keymap } from '@codemirror/view';
+import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { sql } from '@codemirror/lang-sql';
 import { toastSuccess, toastError, toastInfo, confirm } from './toast';
 import {
   listDatabases,
@@ -39,6 +44,7 @@ const RESULTS_CHUNK_SIZE = 1000;
 let tabIdCounter = 0;
 const editorTabs = []; // [{ id, title, sql }]
 let activeTabId = null;
+let sqlEditorView = null;
 
 // ===== Worker =====
 const worker = new Worker('/js/sqlite-worker.js', { type: 'module' });
@@ -105,6 +111,209 @@ const settingsModal = $('#settingsModal');
 const resultsTabEl = $('#results-tab');
 const ddlTabEl = $('#ddl-tab');
 
+function getEditorValue() {
+  if (sqlEditorView) return sqlEditorView.state.doc.toString();
+  return sqlEditor.value;
+}
+
+function getEditorSelectionInfo() {
+  if (sqlEditorView) {
+    const sel = sqlEditorView.state.selection.main;
+    return {
+      from: sel.from,
+      to: sel.to,
+      hasSelection: sel.from !== sel.to,
+      cursor: sel.head,
+    };
+  }
+  return {
+    from: sqlEditor.selectionStart,
+    to: sqlEditor.selectionEnd,
+    hasSelection: sqlEditor.selectionStart !== sqlEditor.selectionEnd,
+    cursor: sqlEditor.selectionEnd,
+  };
+}
+
+function setEditorValue(value) {
+  if (sqlEditorView) {
+    sqlEditorView.dispatch({
+      changes: {
+        from: 0,
+        to: sqlEditorView.state.doc.length,
+        insert: value,
+      },
+    });
+    return;
+  }
+  sqlEditor.value = value;
+}
+
+function focusEditor() {
+  if (sqlEditorView) {
+    sqlEditorView.focus();
+    return;
+  }
+  sqlEditor.focus();
+}
+
+function getSqlStatementsWithRanges(sqlText) {
+  const statements = [];
+  let start = 0;
+  let inSingle = false;
+  let inDouble = false;
+  let inBacktick = false;
+  let inBracket = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let index = 0; index < sqlText.length; index += 1) {
+    const char = sqlText[index];
+    const nextChar = sqlText[index + 1];
+
+    if (inLineComment) {
+      if (char === '\n') inLineComment = false;
+      continue;
+    }
+    if (inBlockComment) {
+      if (char === '*' && nextChar === '/') {
+        inBlockComment = false;
+        index += 1;
+      }
+      continue;
+    }
+    if (inSingle) {
+      if (char === "'" && nextChar === "'") {
+        index += 1;
+        continue;
+      }
+      if (char === "'") inSingle = false;
+      continue;
+    }
+    if (inDouble) {
+      if (char === '"' && nextChar === '"') {
+        index += 1;
+        continue;
+      }
+      if (char === '"') inDouble = false;
+      continue;
+    }
+    if (inBacktick) {
+      if (char === '`') inBacktick = false;
+      continue;
+    }
+    if (inBracket) {
+      if (char === ']') inBracket = false;
+      continue;
+    }
+
+    if (char === '-' && nextChar === '-') {
+      inLineComment = true;
+      index += 1;
+      continue;
+    }
+    if (char === '/' && nextChar === '*') {
+      inBlockComment = true;
+      index += 1;
+      continue;
+    }
+    if (char === "'") {
+      inSingle = true;
+      continue;
+    }
+    if (char === '"') {
+      inDouble = true;
+      continue;
+    }
+    if (char === '`') {
+      inBacktick = true;
+      continue;
+    }
+    if (char === '[') {
+      inBracket = true;
+      continue;
+    }
+
+    if (char === ';') {
+      const end = index + 1;
+      const statement = sqlText.slice(start, end);
+      if (statement.trim()) {
+        statements.push({ start, end, sql: statement.trim() });
+      }
+      start = end;
+    }
+  }
+
+  const tail = sqlText.slice(start);
+  if (tail.trim()) {
+    statements.push({ start, end: sqlText.length, sql: tail.trim() });
+  }
+
+  return statements;
+}
+
+function getRunnableSqlFromEditor() {
+  const sqlText = getEditorValue();
+  const selection = getEditorSelectionInfo();
+
+  if (selection.hasSelection) {
+    const selectedSql = sqlText.slice(selection.from, selection.to).trim();
+    return selectedSql;
+  }
+
+  const statements = getSqlStatementsWithRanges(sqlText);
+  if (statements.length === 0) return '';
+
+  const statementAtCursor = statements.find(
+    (statement) => selection.cursor >= statement.start && selection.cursor <= statement.end
+  );
+  if (statementAtCursor) return statementAtCursor.sql;
+
+  const previousStatement = [...statements]
+    .reverse()
+    .find((statement) => selection.cursor > statement.end);
+  if (previousStatement) return previousStatement.sql;
+
+  return statements[0].sql;
+}
+
+function initCodeMirrorEditor() {
+  const editorHost = document.createElement('div');
+  editorHost.id = 'sql-editor-cm';
+  editorHost.className = 'scl-editor-textarea';
+  sqlEditor.classList.add('d-none');
+  sqlEditor.parentNode.insertBefore(editorHost, sqlEditor.nextSibling);
+
+  sqlEditorView = new EditorView({
+    parent: editorHost,
+    state: EditorState.create({
+      doc: '',
+      extensions: [
+        history(),
+        keymap.of([
+          ...defaultKeymap,
+          ...historyKeymap,
+          {
+            key: 'Mod-Enter',
+            run: () => {
+              showTab(resultsTabEl);
+              executeQuery();
+              return true;
+            },
+          },
+        ]),
+        sql(),
+        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        EditorView.lineWrapping,
+        EditorView.updateListener.of((update) => {
+          if (!update.docChanged || activeTabId === null) return;
+          const cur = editorTabs.find((tab) => tab.id === activeTabId);
+          if (cur) cur.sql = update.state.doc.toString();
+        }),
+      ],
+    }),
+  });
+}
+
 // ===== Init =====
 export async function init() {
   setStatus('Initializing SQLite...');
@@ -118,6 +327,7 @@ export async function init() {
     setStatus('Failed to init SQLite: ' + err.message, true);
     return;
   }
+  initCodeMirrorEditor();
   addEditorTab(); // create the first default tab
   await refreshDbList();
   renderHistory();
@@ -250,7 +460,7 @@ function addEditorTab(sql = '') {
   editorTabs.push({ id, title, sql });
   switchEditorTab(id);
   renderEditorTabs();
-  sqlEditor.focus();
+  focusEditor();
 }
 
 function removeEditorTab(id) {
@@ -270,11 +480,11 @@ function switchEditorTab(id) {
   // save current tab's sql
   if (activeTabId !== null) {
     const cur = editorTabs.find((t) => t.id === activeTabId);
-    if (cur) cur.sql = sqlEditor.value;
+    if (cur) cur.sql = getEditorValue();
   }
   activeTabId = id;
   const tab = editorTabs.find((t) => t.id === id);
-  if (tab) sqlEditor.value = tab.sql;
+  if (tab) setEditorValue(tab.sql);
 }
 
 function renderEditorTabs() {
@@ -291,7 +501,7 @@ function renderEditorTabs() {
     on(btn, 'click', () => {
       switchEditorTab(tab.id);
       renderEditorTabs();
-      sqlEditor.focus();
+      focusEditor();
     });
 
     li.appendChild(btn);
@@ -313,8 +523,8 @@ function renderEditorTabs() {
 }
 
 // ===== Query Execution =====
-async function executeQuery() {
-  const sql = sqlEditor.value.trim();
+async function executeQuery(sqlOverride = null) {
+  const sql = (sqlOverride ?? getRunnableSqlFromEditor()).trim();
   if (!sql) return;
   if (!currentDb) {
     toastInfo('Open a database first');
@@ -565,11 +775,11 @@ function renderHistory() {
       </td>`;
     on(tr.querySelector('.hist-use-btn'), 'click', (e) => {
       e.stopPropagation();
-      sqlEditor.value = entry.sql;
+      setEditorValue(entry.sql);
       const cur = editorTabs.find((t) => t.id === activeTabId);
       if (cur) cur.sql = entry.sql;
       showTab(resultsTabEl);
-      executeQuery();
+      executeQuery(entry.sql);
     });
     on(tr.querySelector('.hist-copy-btn'), 'click', (e) => {
       e.stopPropagation();
@@ -593,27 +803,13 @@ function bindEvents() {
     executeQuery();
   });
   on(resultsContainer, 'scroll', onResultsScroll);
-  on(sqlEditor, 'keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault();
-      executeQuery();
-    }
-    // Tab inserts spaces
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const start = sqlEditor.selectionStart;
-      const end = sqlEditor.selectionEnd;
-      sqlEditor.value = sqlEditor.value.substring(0, start) + '  ' + sqlEditor.value.substring(end);
-      sqlEditor.selectionStart = sqlEditor.selectionEnd = start + 2;
-    }
-  });
 
   // Clear
   on(clearBtn, 'click', () => {
-    sqlEditor.value = '';
+    setEditorValue('');
     const cur = editorTabs.find((t) => t.id === activeTabId);
     if (cur) cur.sql = '';
-    sqlEditor.focus();
+    focusEditor();
   });
 
   // Add editor tab
@@ -672,7 +868,7 @@ function bindEvents() {
     if (!name) return;
     const sql = `SELECT * FROM [${name}] LIMIT 1000;`;
     addEditorTab(sql);
-    executeQuery();
+    executeQuery(sql);
   });
 
   // Settings modal - load values when opened
