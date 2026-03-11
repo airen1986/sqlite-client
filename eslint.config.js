@@ -23,6 +23,8 @@ export default [
         FormData: "readonly",
         URLSearchParams: "readonly",
         AbortController: "readonly",
+        requestAnimationFrame: "readonly",
+        setTimeout: "readonly",
       },
     },
     rules: {

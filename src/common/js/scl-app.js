@@ -553,7 +553,9 @@ function isValidAbsoluteHttpUrl(url) {
 }
 
 function resolveCustomTextToSqlEndpoint(settings) {
-  const rawEndpoint = (settings?.textToSqlCustomEndpoint || '').trim();
+  const rawEndpoint = (
+    settings?.textToSqlCustomEndpoint || TEXT_TO_SQL_CUSTOM_ENDPOINT_DEFAULT
+  ).trim();
   if (!rawEndpoint) {
     throw new Error('Custom endpoint is required for Custom provider.');
   }
@@ -694,7 +696,7 @@ async function generateSqlFromPrompt(promptText) {
   const schema = await buildSchemaContext();
   const finalPrompt = buildTextToSqlPrompt(promptText, schema);
 
-  let generatedRaw = '';
+  let generatedRaw;
   if (provider === 'chatgpt') {
     generatedRaw = await requestChatGptSql({ apiKey, model, finalPrompt });
   } else if (provider === 'claude') {
@@ -761,8 +763,15 @@ function openTextToSqlPopup(view) {
   };
 
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); submit(); }
-    if (e.key === 'Escape') { e.preventDefault(); closeTextToSqlPopup(); view.focus(); }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submit();
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeTextToSqlPopup();
+      view.focus();
+    }
   });
   submitBtn.addEventListener('click', submit);
 
@@ -793,7 +802,10 @@ async function handleTextToSqlPopupSubmit(view, cursorPos, prompt) {
   setStatus('Generating SQL...');
   try {
     const generatedSql = await generateSqlFromPrompt(prompt);
-    const commentLines = prompt.split('\n').map((l) => `-- ${l}`).join('\n');
+    const commentLines = prompt
+      .split('\n')
+      .map((l) => `-- ${l}`)
+      .join('\n');
     const insertion = `${commentLines}\n${generatedSql}\n`;
     const line = view.state.doc.lineAt(cursorPos);
     view.dispatch({
@@ -1492,7 +1504,9 @@ function bindEvents() {
     const selectedProvider = textToSqlProviderInput.value || TEXT_TO_SQL_PROVIDER_DEFAULT;
     const customEndpoint = textToSqlCustomEndpointInput.value.trim();
     if (selectedProvider === 'custom' && !isValidAbsoluteHttpUrl(customEndpoint)) {
-      toastError('Custom endpoint must be a full URL (for example: https://openrouter.ai/api/v1/chat/completions).');
+      toastError(
+        'Custom endpoint must be a full URL (for example: https://openrouter.ai/api/v1/chat/completions).'
+      );
       return;
     }
 
