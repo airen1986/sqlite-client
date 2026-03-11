@@ -9,7 +9,7 @@ async function registerCoiServiceWorker() {
   if (window.crossOriginIsolated) return;
 
   try {
-    await navigator.serviceWorker.register('/sw-coi.js', { scope: '/' });
+    await navigator.serviceWorker.register('./sw-coi.js', { scope: '/' });
     await navigator.serviceWorker.ready;
     if (!window.crossOriginIsolated) {
       window.location.reload();
