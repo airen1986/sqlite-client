@@ -237,7 +237,7 @@ async function sqlCompletionSource(context) {
 }
 
 // ===== Worker =====
-const worker = new Worker('/js/sqlite-worker.js', { type: 'module' });
+const worker = new Worker('./js/sqlite-worker.js', { type: 'module' });
 
 worker.onmessage = (e) => {
   const { id, error } = e.data;
