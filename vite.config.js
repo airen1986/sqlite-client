@@ -17,6 +17,7 @@ function getHtmlInputs() {
 
 export default defineConfig({
   root: resolve(__dirname, 'src'),
+  base: './',
   envDir: resolve(__dirname),
   resolve: {
     alias: {
