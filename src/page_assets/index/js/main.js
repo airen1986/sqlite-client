@@ -20,5 +20,6 @@ async function registerCoiServiceWorker() {
 }
 
 // Start the app
-await registerCoiServiceWorker();
-init();
+registerCoiServiceWorker().then(() => {
+  init();
+});
