@@ -45,9 +45,13 @@ let lastRows = null;
 let renderedRowsCount = 0;
 let lazyRows = null;
 let msgIdCounter = 0;
+let textToSqlPopupEl = null;
 const pendingMessages = new Map();
 const RESULTS_CHUNK_SIZE = 1000;
 const ENABLE_SQL_AUTOCOMPLETE = true;
+const TEXT_TO_SQL_PROVIDER_DEFAULT = 'chatgpt';
+const TEXT_TO_SQL_MODEL_DEFAULT = 'gpt-4o-mini';
+const TEXT_TO_SQL_CUSTOM_ENDPOINT_DEFAULT = '';
 const SQL_KEYWORDS = [
   'SELECT',
   'FROM',
@@ -269,6 +273,7 @@ const historyTableWrap = $('#history-table-wrap');
 const historyTbody = $('#history-tbody');
 const sqlEditor = $('#sql-editor');
 const runBtn = $('#run-btn');
+const promptBtn = $('#prompt-btn');
 const clearBtn = $('#clear-btn');
 const editorTabsUl = $('#editor-tabs');
 const addTabBtn = $('#add-tab-btn');
@@ -289,7 +294,11 @@ const ddlCopyBtn = $('#ddl-copy-btn');
 const ddlCountBtn = $('#ddl-count-btn');
 const ddlExportCsvBtn = $('#ddl-export-csv-btn');
 const ddlQueryBtn = $('#ddl-query-btn');
-const apiKeyInput = $('#api-key-input');
+const textToSqlProviderInput = $('#text-to-sql-provider-input');
+const textToSqlModelInput = $('#text-to-sql-model-input');
+const textToSqlApiKeyInput = $('#text-to-sql-api-key-input');
+const textToSqlCustomEndpointInput = $('#text-to-sql-custom-endpoint-input');
+const textToSqlCustomEndpointGroup = $('#text-to-sql-custom-endpoint-group');
 const saveSettingsBtn = $('#save-settings-btn');
 const settingsModal = $('#settingsModal');
 
@@ -340,6 +349,31 @@ function focusEditor() {
     return;
   }
   sqlEditor.focus();
+}
+
+function hasExecutableSql(sqlText) {
+  const withoutBlockComments = sqlText.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const withoutLineComments = withoutBlockComments.replace(/--.*$/gm, ' ');
+  return withoutLineComments.trim().length > 0;
+}
+
+function stripLeadingSqlComments(sqlText) {
+  let remaining = sqlText;
+
+  while (true) {
+    const trimmedStart = remaining.replace(/^\s+/, '');
+    if (trimmedStart.startsWith('--')) {
+      const lineEnd = trimmedStart.indexOf('\n');
+      remaining = lineEnd === -1 ? '' : trimmedStart.slice(lineEnd + 1);
+      continue;
+    }
+    if (trimmedStart.startsWith('/*')) {
+      const blockEnd = trimmedStart.indexOf('*/');
+      remaining = blockEnd === -1 ? '' : trimmedStart.slice(blockEnd + 2);
+      continue;
+    }
+    return trimmedStart;
+  }
 }
 
 function getSqlStatementsWithRanges(sqlText) {
@@ -422,7 +456,7 @@ function getSqlStatementsWithRanges(sqlText) {
     if (char === ';') {
       const end = index + 1;
       const statement = sqlText.slice(start, end);
-      if (statement.trim()) {
+      if (statement.trim() && hasExecutableSql(statement)) {
         statements.push({ start, end, sql: statement.trim() });
       }
       start = end;
@@ -430,7 +464,7 @@ function getSqlStatementsWithRanges(sqlText) {
   }
 
   const tail = sqlText.slice(start);
-  if (tail.trim()) {
+  if (tail.trim() && hasExecutableSql(tail)) {
     statements.push({ start, end: sqlText.length, sql: tail.trim() });
   }
 
@@ -460,6 +494,321 @@ function getRunnableSqlFromEditor() {
   if (previousStatement) return previousStatement.sql;
 
   return statements[0].sql;
+}
+
+async function buildSchemaContext() {
+  await refreshCompletionSchema();
+
+  return {
+    dbName: currentDb,
+    tables: completionSchema.tables.map((tableName) => ({
+      name: tableName,
+      columns: completionSchema.columnsByTable.get(tableName) || [],
+    })),
+    views: completionSchema.views.map((viewName) => ({
+      name: viewName,
+      columns: completionSchema.columnsByTable.get(viewName) || [],
+    })),
+  };
+}
+
+function extractGeneratedSql(response) {
+  if (!response) return '';
+  if (typeof response === 'string') return response.trim();
+  if (typeof response.sql === 'string') return response.sql.trim();
+  if (typeof response.query === 'string') return response.query.trim();
+  if (response.data && typeof response.data.sql === 'string') return response.data.sql.trim();
+  return '';
+}
+
+function stripSqlCodeFence(sqlText) {
+  const trimmed = sqlText.trim();
+  const fencedMatch = trimmed.match(/^```(?:sql)?\s*\n([\s\S]*?)\n```$/i);
+  if (fencedMatch) return fencedMatch[1].trim();
+  return trimmed;
+}
+
+function buildTextToSqlPrompt(promptText, schema) {
+  const schemaJson = JSON.stringify(schema, null, 2);
+  return [
+    'Generate one valid SQLite SQL statement for the request below.',
+    'Use only tables/views/columns from schema context.',
+    'Return only SQL without explanation or markdown.',
+    '',
+    'Schema context:',
+    schemaJson,
+    '',
+    'User request:',
+    promptText,
+  ].join('\n');
+}
+
+function isValidAbsoluteHttpUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function resolveCustomTextToSqlEndpoint(settings) {
+  const rawEndpoint = (settings?.textToSqlCustomEndpoint || '').trim();
+  if (!rawEndpoint) {
+    throw new Error('Custom endpoint is required for Custom provider.');
+  }
+  if (!isValidAbsoluteHttpUrl(rawEndpoint)) {
+    throw new Error('Custom endpoint must be a full URL starting with http:// or https://');
+  }
+  return rawEndpoint;
+}
+
+function handleTextToSqlHttpError(response, bodyText) {
+  const msg = bodyText || `${response.status} ${response.statusText}`;
+  throw new Error(`Text-to-SQL request failed: ${msg}`);
+}
+
+async function requestChatGptSql({ apiKey, model, finalPrompt }) {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a SQLite SQL generator. Return only SQL.',
+        },
+        {
+          role: 'user',
+          content: finalPrompt,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    handleTextToSqlHttpError(response, await response.text());
+  }
+  const data = await response.json();
+  return data?.choices?.[0]?.message?.content || '';
+}
+
+async function requestClaudeSql({ apiKey, model, finalPrompt }) {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1024,
+      temperature: 0,
+      system: 'You are a SQLite SQL generator. Return only SQL.',
+      messages: [{ role: 'user', content: finalPrompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    handleTextToSqlHttpError(response, await response.text());
+  }
+  const data = await response.json();
+  const firstPart = data?.content?.[0];
+  return firstPart?.text || '';
+}
+
+async function requestGeminiSql({ apiKey, model, finalPrompt }) {
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      generationConfig: {
+        temperature: 0,
+      },
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: finalPrompt }],
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    handleTextToSqlHttpError(response, await response.text());
+  }
+  const data = await response.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+async function requestCustomSql({ endpoint, apiKey, model, promptText, schema }) {
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'x-api-key': apiKey,
+    },
+    body: JSON.stringify({
+      prompt: promptText,
+      dialect: 'sqlite',
+      schema,
+      model,
+    }),
+  });
+
+  if (!response.ok) {
+    handleTextToSqlHttpError(response, await response.text());
+  }
+  return response.json();
+}
+
+function toggleCustomEndpointField() {
+  if (!textToSqlProviderInput || !textToSqlCustomEndpointGroup) return;
+  const provider = textToSqlProviderInput.value;
+  textToSqlCustomEndpointGroup.classList.toggle('d-none', provider !== 'custom');
+}
+
+async function generateSqlFromPrompt(promptText) {
+  const settings = getSettings();
+  const provider = settings.textToSqlProvider || TEXT_TO_SQL_PROVIDER_DEFAULT;
+  const model = (settings.textToSqlModel || '').trim();
+  const apiKey = (settings.textToSqlApiKey || '').trim();
+
+  if (!apiKey) {
+    throw new Error('Text-to-SQL API key not found. Set it in Settings first.');
+  }
+  if (!model) {
+    throw new Error('Text-to-SQL model is required. Set it in Settings first.');
+  }
+
+  const schema = await buildSchemaContext();
+  const finalPrompt = buildTextToSqlPrompt(promptText, schema);
+
+  let generatedRaw = '';
+  if (provider === 'chatgpt') {
+    generatedRaw = await requestChatGptSql({ apiKey, model, finalPrompt });
+  } else if (provider === 'claude') {
+    generatedRaw = await requestClaudeSql({ apiKey, model, finalPrompt });
+  } else if (provider === 'gemini') {
+    generatedRaw = await requestGeminiSql({ apiKey, model, finalPrompt });
+  } else if (provider === 'custom') {
+    const customEndpoint = resolveCustomTextToSqlEndpoint(settings);
+    const customResponse = await requestCustomSql({
+      endpoint: customEndpoint,
+      apiKey,
+      model,
+      promptText,
+      schema,
+    });
+    generatedRaw = extractGeneratedSql(customResponse);
+  } else {
+    throw new Error(`Unsupported Text-to-SQL provider: ${provider}`);
+  }
+
+  const generatedSql = stripSqlCodeFence(generatedRaw);
+  if (!generatedSql) {
+    throw new Error('Text-to-SQL API returned no SQL.');
+  }
+  return generatedSql;
+}
+
+// ===== Text-to-SQL Popup =====
+function openTextToSqlPopup(view) {
+  closeTextToSqlPopup();
+  const cursorPos = view.state.selection.main.head;
+  const coords = view.coordsAtPos(cursorPos);
+  if (!coords) return true;
+
+  const popup = document.createElement('div');
+  popup.className = 'scl-txt2sql-popup';
+  popup.innerHTML = `
+    <i class="fa-solid fa-wand-magic-sparkles scl-txt2sql-icon" aria-hidden="true"></i>
+    <input
+      type="text"
+      class="scl-txt2sql-input"
+      placeholder="Describe how to proceed in ..."
+      autocomplete="off"
+      spellcheck="false"
+    />
+    <button class="scl-txt2sql-submit" type="button" title="Generate SQL">
+      <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+    </button>
+  `;
+  popup.style.top = `${Math.min(coords.bottom + 6, window.innerHeight - 80)}px`;
+  popup.style.left = `${Math.max(0, Math.min(coords.left, window.innerWidth - 400))}px`;
+  document.body.appendChild(popup);
+  textToSqlPopupEl = popup;
+
+  const input = popup.querySelector('.scl-txt2sql-input');
+  const submitBtn = popup.querySelector('.scl-txt2sql-submit');
+  requestAnimationFrame(() => input.focus());
+
+  const submit = async () => {
+    const prompt = input.value.trim();
+    if (!prompt) return;
+    closeTextToSqlPopup();
+    await handleTextToSqlPopupSubmit(view, cursorPos, prompt);
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); submit(); }
+    if (e.key === 'Escape') { e.preventDefault(); closeTextToSqlPopup(); view.focus(); }
+  });
+  submitBtn.addEventListener('click', submit);
+
+  const onOutsideClick = (e) => {
+    if (textToSqlPopupEl && !textToSqlPopupEl.contains(e.target)) {
+      closeTextToSqlPopup();
+      document.removeEventListener('mousedown', onOutsideClick);
+    }
+  };
+  setTimeout(() => document.addEventListener('mousedown', onOutsideClick), 0);
+  return true;
+}
+
+function closeTextToSqlPopup() {
+  if (textToSqlPopupEl) {
+    textToSqlPopupEl.remove();
+    textToSqlPopupEl = null;
+  }
+}
+
+async function handleTextToSqlPopupSubmit(view, cursorPos, prompt) {
+  if (!currentDb) {
+    toastInfo('Open a database first');
+    view.focus();
+    return;
+  }
+
+  setStatus('Generating SQL...');
+  try {
+    const generatedSql = await generateSqlFromPrompt(prompt);
+    const commentLines = prompt.split('\n').map((l) => `-- ${l}`).join('\n');
+    const insertion = `${commentLines}\n${generatedSql}\n`;
+    const line = view.state.doc.lineAt(cursorPos);
+    view.dispatch({
+      changes: { from: line.from, insert: insertion },
+      selection: { anchor: line.from + insertion.length },
+    });
+    const cur = editorTabs.find((tab) => tab.id === activeTabId);
+    if (cur) cur.sql = view.state.doc.toString();
+    setStatus('SQL generated — press Ctrl+Enter to run');
+  } catch (err) {
+    toastError('Text-to-SQL failed: ' + err.message);
+    setStatus('');
+  } finally {
+    view.focus();
+  }
 }
 
 function initCodeMirrorEditor() {
@@ -497,6 +846,10 @@ function initCodeMirrorEditor() {
             },
           },
           ...(ENABLE_SQL_AUTOCOMPLETE ? completionKeymap : []),
+          {
+            key: 'Mod-i',
+            run: (view) => openTextToSqlPopup(view),
+          },
           {
             key: 'Mod-Enter',
             run: () => {
@@ -763,7 +1116,7 @@ function renderEditorTabs() {
 
 // ===== Query Execution =====
 async function executeQuery(sqlOverride = null) {
-  const sql = (sqlOverride ?? getRunnableSqlFromEditor()).trim();
+  const sql = stripLeadingSqlComments((sqlOverride ?? getRunnableSqlFromEditor()).trim());
   if (!sql) return;
   if (!currentDb) {
     toastInfo('Open a database first');
@@ -773,9 +1126,9 @@ async function executeQuery(sqlOverride = null) {
   showResultsLoader();
   setStatus('Executing...');
   runBtn.disabled = true;
-  const start = performance.now();
 
   try {
+    const start = performance.now();
     const result = await sendWorker('exec', { sql });
     const elapsed = ((performance.now() - start) / 1000).toFixed(3);
 
@@ -1041,6 +1394,14 @@ function bindEvents() {
     showTab(resultsTabEl);
     executeQuery();
   });
+
+  // Open text-to-sql prompt popup
+  on(promptBtn, 'click', () => {
+    if (!sqlEditorView) return;
+    focusEditor();
+    openTextToSqlPopup(sqlEditorView);
+  });
+
   on(resultsContainer, 'scroll', onResultsScroll);
 
   // Clear
@@ -1114,13 +1475,34 @@ function bindEvents() {
   if (settingsModal) {
     on(settingsModal, 'show.bs.modal', () => {
       const settings = getSettings();
-      apiKeyInput.value = settings.apiKey || '';
+      textToSqlProviderInput.value = settings.textToSqlProvider || TEXT_TO_SQL_PROVIDER_DEFAULT;
+      textToSqlModelInput.value = settings.textToSqlModel || TEXT_TO_SQL_MODEL_DEFAULT;
+      textToSqlApiKeyInput.value = settings.textToSqlApiKey || '';
+      textToSqlCustomEndpointInput.value = settings.textToSqlCustomEndpoint || '';
+      toggleCustomEndpointField();
     });
   }
 
+  on(textToSqlProviderInput, 'change', () => {
+    toggleCustomEndpointField();
+  });
+
   // Save settings
   on(saveSettingsBtn, 'click', () => {
-    saveSettings({ ...getSettings(), apiKey: apiKeyInput.value.trim() });
+    const selectedProvider = textToSqlProviderInput.value || TEXT_TO_SQL_PROVIDER_DEFAULT;
+    const customEndpoint = textToSqlCustomEndpointInput.value.trim();
+    if (selectedProvider === 'custom' && !isValidAbsoluteHttpUrl(customEndpoint)) {
+      toastError('Custom endpoint must be a full URL (for example: https://openrouter.ai/api/v1/chat/completions).');
+      return;
+    }
+
+    saveSettings({
+      ...getSettings(),
+      textToSqlProvider: selectedProvider,
+      textToSqlModel: textToSqlModelInput.value.trim(),
+      textToSqlApiKey: textToSqlApiKeyInput.value.trim(),
+      textToSqlCustomEndpoint: customEndpoint,
+    });
     // Close modal via Bootstrap
     const modal = window.bootstrap.Modal.getInstance(settingsModal);
     if (modal) modal.hide();

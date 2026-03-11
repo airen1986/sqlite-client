@@ -116,6 +116,7 @@
   border: none;
   border-radius: 0;
   min-height: 100px;
+  max-height: 320px;
   background-color: $body-bg;
 
   &:focus {
@@ -125,6 +126,7 @@
 
   .cm-editor {
     min-height: 100px;
+    max-height: 320px;
     border: none;
     border-radius: 0;
     background-color: $body-bg;
@@ -157,6 +159,9 @@
   .cm-scroller {
     font-family: $font-family-monospace;
     line-height: 1.6;
+    max-height: 320px;
+    overflow-y: auto;
+    overflow-x: auto;
   }
 
   .cm-tok-keyword {
@@ -235,6 +240,67 @@
     max-width: 400px;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+}
+
+// Text-to-SQL inline popup (Ctrl+I)
+.scl-txt2sql-popup {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 320px;
+  max-width: 460px;
+  padding: 0.4rem 0.5rem;
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.5rem;
+  box-shadow: $box-shadow;
+
+  .scl-txt2sql-icon {
+    color: var(--bs-secondary-color);
+    font-size: 0.8rem;
+    flex-shrink: 0;
+  }
+
+  .scl-txt2sql-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.875rem;
+    color: var(--bs-body-color);
+    min-width: 0;
+
+    &::placeholder {
+      color: var(--bs-secondary-color);
+    }
+  }
+
+  .scl-txt2sql-submit {
+    flex-shrink: 0;
+    width: 1.6rem;
+    height: 1.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bs-emphasis-color);
+    color: var(--bs-body-bg);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.7rem;
+    transition: opacity 0.15s;
+
+    &:hover {
+      opacity: 0.8;
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
   }
 }
 

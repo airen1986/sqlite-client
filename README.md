@@ -102,6 +102,63 @@ scripts/
 - Use **Run** or `Ctrl/Cmd + Enter` to execute SQL.
 - Use results toolbar to copy TSV or export CSV.
 
+## Text-to-SQL Setup
+
+The editor supports natural-language prompts using SQL comment lines.
+
+### Prompt Format
+
+- Write your prompt as comment-only content in the editor, starting each line with `--`.
+- Press `Ctrl/Cmd + Enter`.
+- The app sends your prompt and current schema context to the selected provider.
+- Returned SQL is inserted into the editor and executed automatically.
+
+Example prompt:
+
+```sql
+-- show total sales by month for 2024
+-- include only completed orders
+-- sort by month ascending
+```
+
+### Settings
+
+Open **Settings** and configure:
+
+- **Text-to-SQL Provider**: `ChatGPT`, `Claude`, `Gemini`, or `Custom`
+- **Model** (provider-specific model name)
+- **API Key**
+- **Custom Endpoint** (only when provider is `Custom`, default: `/text-to-sql`)
+
+Custom endpoint accepts either:
+
+- relative path (for same-origin backend), e.g. `/text-to-sql`
+- absolute URL, e.g. `https://api.example.com/text-to-sql`
+
+### API Contract (Expected)
+
+Request body (JSON):
+
+```json
+{
+	"prompt": "show monthly active users",
+	"dialect": "sqlite",
+	"schema": {
+		"dbName": "app.db",
+		"tables": [{ "name": "users", "columns": ["id", "created_at"] }],
+		"views": []
+	},
+	"model": "provider-model-name"
+}
+```
+
+Accepted response shapes:
+
+- `{ "sql": "SELECT ..." }`
+- `{ "query": "SELECT ..." }`
+- `{ "data": { "sql": "SELECT ..." } }`
+- plain string SQL
+
 ## Environment
 
 The project supports Vite-style environment variables (`VITE_*`).

@@ -148,6 +148,14 @@
               <i class="fa-solid fa-play me-1" aria-hidden="true"></i>
               Run
             </button>
+            <button
+              id="prompt-btn"
+              class="btn btn-dark btn-sm"
+              title="Open prompt (Ctrl+I)"
+            >
+              <i class="fa-solid fa-wand-magic-sparkles me-1" aria-hidden="true"></i>
+              Prompt
+            </button>
             <button id="clear-btn" class="btn btn-dark btn-sm" title="Clear editor">
               <i class="fa-solid fa-eraser me-1" aria-hidden="true"></i>
               Clear
@@ -327,10 +335,48 @@
           </div>
           <div class="modal-body">
             <div class="mb-3">
-              <label for="api-key-input" class="form-label fw-bold">
-                AI API Key (for future autocomplete)
+              <label for="text-to-sql-provider-input" class="form-label fw-bold">
+                Text-to-SQL Provider
               </label>
-              <input type="password" class="form-control" id="api-key-input" placeholder="sk-..." />
+              <select id="text-to-sql-provider-input" class="form-select">
+                <option value="chatgpt">ChatGPT</option>
+                <option value="claude">Claude</option>
+                <option value="gemini">Gemini</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="text-to-sql-model-input" class="form-label fw-bold">
+                Model
+              </label>
+              <input
+                type="text"
+                class="form-control"
+                id="text-to-sql-model-input"
+                placeholder="gpt-4o-mini"
+              />
+            </div>
+            <div class="mb-3">
+              <label for="text-to-sql-api-key-input" class="form-label fw-bold">
+                API Key
+              </label>
+              <input
+                type="password"
+                class="form-control"
+                id="text-to-sql-api-key-input"
+                placeholder="sk-..."
+              />
+            </div>
+            <div class="mb-0 d-none" id="text-to-sql-custom-endpoint-group">
+              <label for="text-to-sql-custom-endpoint-input" class="form-label fw-bold">
+                Custom Endpoint
+              </label>
+              <input
+                type="text"
+                class="form-control"
+                id="text-to-sql-custom-endpoint-input"
+                placeholder="https://openrouter.ai/api/v1/chat/completions"
+              />
             </div>
           </div>
           <div class="modal-footer">
