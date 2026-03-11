@@ -49,6 +49,7 @@ let textToSqlPopupEl = null;
 const pendingMessages = new Map();
 const RESULTS_CHUNK_SIZE = 1000;
 const ENABLE_SQL_AUTOCOMPLETE = true;
+const DESKTOP_VIEWPORT = 'width=1280, initial-scale=1.0';
 const TEXT_TO_SQL_PROVIDER_DEFAULT = 'chatgpt';
 const TEXT_TO_SQL_MODEL_DEFAULT = 'gpt-4o-mini';
 const TEXT_TO_SQL_CUSTOM_ENDPOINT_DEFAULT = '';
@@ -712,6 +713,19 @@ function toggleCustomEndpointField() {
   textToSqlCustomEndpointGroup.classList.toggle('d-none', provider !== 'custom');
 }
 
+function enforceDesktopViewport() {
+  const viewportMeta = document.querySelector('meta[name="viewport"]');
+  if (viewportMeta) {
+    viewportMeta.setAttribute('content', DESKTOP_VIEWPORT);
+    return;
+  }
+
+  const createdViewportMeta = document.createElement('meta');
+  createdViewportMeta.setAttribute('name', 'viewport');
+  createdViewportMeta.setAttribute('content', DESKTOP_VIEWPORT);
+  document.head.appendChild(createdViewportMeta);
+}
+
 async function generateSqlFromPrompt(promptText) {
   const settings = getSettings();
   const provider = settings.textToSqlProvider || TEXT_TO_SQL_PROVIDER_DEFAULT;
@@ -934,6 +948,7 @@ function initCodeMirrorEditor() {
 
 // ===== Init =====
 export async function init() {
+  enforceDesktopViewport();
   setStatus('Initializing SQLite...');
   try {
     const info = await sendWorker('init');
