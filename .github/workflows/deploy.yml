@@ -29,6 +29,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-files
+          path: dist/
+
       - name: Deploy to VPS
         uses: burnett01/rsync-deployments@7.0.1
         with:
