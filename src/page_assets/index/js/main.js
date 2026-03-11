@@ -20,5 +20,5 @@ async function registerCoiServiceWorker() {
 }
 
 // Start the app
-registerCoiServiceWorker();
+await registerCoiServiceWorker();
 init();
