@@ -52,6 +52,7 @@ const ENABLE_SQL_AUTOCOMPLETE = true;
 const TEXT_TO_SQL_PROVIDER_DEFAULT = 'chatgpt';
 const TEXT_TO_SQL_MODEL_DEFAULT = 'gpt-4o-mini';
 const TEXT_TO_SQL_CUSTOM_ENDPOINT_DEFAULT = '';
+const TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT = 'Bearer';
 const SQL_KEYWORDS = [
   'SELECT',
   'FROM',
@@ -298,6 +299,7 @@ const textToSqlProviderInput = $('#text-to-sql-provider-input');
 const textToSqlModelInput = $('#text-to-sql-model-input');
 const textToSqlApiKeyInput = $('#text-to-sql-api-key-input');
 const textToSqlCustomEndpointInput = $('#text-to-sql-custom-endpoint-input');
+const textToSqlCustomAuthTypeInput = $('#text-to-sql-custom-auth-type-input');
 const textToSqlCustomEndpointGroup = $('#text-to-sql-custom-endpoint-group');
 const saveSettingsBtn = $('#save-settings-btn');
 const settingsModal = $('#settingsModal');
@@ -552,6 +554,13 @@ function isValidAbsoluteHttpUrl(url) {
   }
 }
 
+/**
+ * Validate and return the effective custom text-to-SQL endpoint URL from settings.
+ * @param {Object} settings - Application settings object; may contain `textToSqlCustomEndpoint`.
+ * @returns {string} The validated absolute HTTP(S) endpoint URL.
+ * @throws {Error} If the resolved endpoint is empty.
+ * @throws {Error} If the resolved endpoint is not a full URL starting with `http://` or `https://`.
+ */
 function resolveCustomTextToSqlEndpoint(settings) {
   const rawEndpoint = (
     settings?.textToSqlCustomEndpoint || TEXT_TO_SQL_CUSTOM_ENDPOINT_DEFAULT
@@ -565,11 +574,38 @@ function resolveCustomTextToSqlEndpoint(settings) {
   return rawEndpoint;
 }
 
+/**
+ * Resolve the effective authentication type for the custom text-to-SQL provider from user settings, falling back to the default when unset or blank.
+ * @param {Object} settings - Optional settings object that may contain `textToSqlCustomAuthType`.
+ * @returns {string} The resolved auth type string; returns `TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT` when the provided value is missing or empty.
+ */
+function resolveCustomTextToSqlAuthType(settings) {
+  const rawAuthType = (
+    settings?.textToSqlCustomAuthType || TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT
+  ).trim();
+  return rawAuthType || TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT;
+}
+
+/**
+ * Throw a descriptive Error when a text-to-SQL HTTP response indicates failure.
+ *
+ * @param {Response} response - The fetch Response object used to derive the HTTP status and status text.
+ * @param {string} [bodyText] - Optional response body text to include in the error message when available.
+ * @throws {Error} An error whose message is `Text-to-SQL request failed: <message>`, where `<message>` is `bodyText` if provided, otherwise "`<status> <statusText>`".
+ */
 function handleTextToSqlHttpError(response, bodyText) {
   const msg = bodyText || `${response.status} ${response.statusText}`;
   throw new Error(`Text-to-SQL request failed: ${msg}`);
 }
 
+/**
+ * Request SQL generation from OpenAI Chat Completions using the provided prompt and model.
+ * @param {Object} params
+ * @param {string} params.apiKey - OpenAI API key used for authorization.
+ * @param {string} params.model - OpenAI model identifier to use for generation.
+ * @param {string} params.finalPrompt - The final user prompt (including any schema/context) to send to the model.
+ * @returns {string} The generated SQL text from the model, or an empty string if none is returned.
+ */
 async function requestChatGptSql({ apiKey, model, finalPrompt }) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -583,7 +619,8 @@ async function requestChatGptSql({ apiKey, model, finalPrompt }) {
       messages: [
         {
           role: 'system',
-          content: 'You are a SQLite SQL generator. Return only SQL.',
+          content:
+            'You are a SQLite SQL generator. Use "," for cross joins. Do not use aliases unless necessary. Return only SQL.',
         },
         {
           role: 'user',
@@ -600,6 +637,16 @@ async function requestChatGptSql({ apiKey, model, finalPrompt }) {
   return data?.choices?.[0]?.message?.content || '';
 }
 
+/**
+ * Send a prompt to Anthropic Claude and return the generated SQL.
+ *
+ * @param {Object} params - Request parameters.
+ * @param {string} params.apiKey - Anthropic API key.
+ * @param {string} params.model - Claude model identifier.
+ * @param {string} params.finalPrompt - The finalized prompt to send to Claude (includes system/schema/instructions).
+ * @returns {string} The generated SQL text extracted from the Claude response, or an empty string if none was returned.
+ * @throws {Error} If the HTTP request fails; the thrown error includes the response body for diagnosis.
+ */
 async function requestClaudeSql({ apiKey, model, finalPrompt }) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -612,7 +659,8 @@ async function requestClaudeSql({ apiKey, model, finalPrompt }) {
       model,
       max_tokens: 1024,
       temperature: 0,
-      system: 'You are a SQLite SQL generator. Return only SQL.',
+      system:
+        'You are a SQLite SQL generator. Use "," for cross joins. Do not use aliases unless necessary. Return only SQL.',
       messages: [{ role: 'user', content: finalPrompt }],
     }),
   });
@@ -625,6 +673,13 @@ async function requestClaudeSql({ apiKey, model, finalPrompt }) {
   return firstPart?.text || '';
 }
 
+/**
+ * Generate SQL from a Google Gemini (Generative Language) model using the provided API key and prompt.
+ * @param {string} apiKey - Google API key for the Generative Language endpoint.
+ * @param {string} model - Model identifier to call (for example `models/text-bison-001`).
+ * @param {string} finalPrompt - The finalized prompt to send to the model, typically including schema and user request.
+ * @returns {string} The SQL produced by the model, or an empty string if no content was returned.
+ */
 async function requestGeminiSql({ apiKey, model, finalPrompt }) {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const response = await fetch(endpoint, {
@@ -637,6 +692,14 @@ async function requestGeminiSql({ apiKey, model, finalPrompt }) {
         temperature: 0,
       },
       contents: [
+        {
+          role: 'system',
+          parts: [
+            {
+              text: 'You are a SQLite SQL generator. Use "," for cross joins. Do not use aliases unless necessary. Return only SQL.',
+            },
+          ],
+        },
         {
           role: 'user',
           parts: [{ text: finalPrompt }],
@@ -652,19 +715,44 @@ async function requestGeminiSql({ apiKey, model, finalPrompt }) {
   return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
-async function requestCustomSql({ endpoint, apiKey, model, promptText, schema }) {
+/**
+ * Send a POST request to a custom text-to-SQL endpoint and return the parsed JSON response.
+ *
+ * @param {Object} params
+ * @param {string} params.endpoint - The absolute URL of the custom provider endpoint.
+ * @param {string} [params.authType] - The header name to use for authentication; use `'Bearer'` to set the `Authorization: Bearer <apiKey>` header.
+ * @param {string} params.apiKey - The API key or token value to include in the authentication header.
+ * @param {string} params.model - The model identifier to request from the provider.
+ * @param {string} params.finalPrompt - The finalized prompt text to send in the user message.
+ * @returns {Promise<Object>} The parsed JSON response from the custom provider.
+ * @throws Will throw an error if the HTTP response is not OK (propagated from handleTextToSqlHttpError).
+ */
+async function requestCustomSql({ endpoint, authType, apiKey, model, finalPrompt }) {
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  if (authType === 'Bearer') {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  } else if (authType) {
+    headers[authType] = `${apiKey}`;
+  }
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'x-api-key': apiKey,
-    },
+    headers,
     body: JSON.stringify({
-      prompt: promptText,
-      dialect: 'sqlite',
-      schema,
       model,
+      temperature: 0,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a SQLite SQL generator. Use "," for cross joins. Do not use aliases unless necessary. Return only SQL.',
+        },
+        {
+          role: 'user',
+          content: finalPrompt,
+        },
+      ],
     }),
   });
 
@@ -680,6 +768,15 @@ function toggleCustomEndpointField() {
   textToSqlCustomEndpointGroup.classList.toggle('d-none', provider !== 'custom');
 }
 
+/**
+ * Generates SQL from a natural-language prompt using the configured Text-to-SQL provider and the current database schema.
+ *
+ * @param {string} promptText - The user's natural-language prompt describing the desired query.
+ * @returns {string} The generated SQL statement (with any surrounding code fences removed).
+ * @throws {Error} If the stored API key or model is missing.
+ * @throws {Error} If the configured provider is unsupported.
+ * @throws {Error} If the provider returns no SQL.
+ */
 async function generateSqlFromPrompt(promptText) {
   const settings = getSettings();
   const provider = settings.textToSqlProvider || TEXT_TO_SQL_PROVIDER_DEFAULT;
@@ -705,12 +802,13 @@ async function generateSqlFromPrompt(promptText) {
     generatedRaw = await requestGeminiSql({ apiKey, model, finalPrompt });
   } else if (provider === 'custom') {
     const customEndpoint = resolveCustomTextToSqlEndpoint(settings);
+    const customAuthType = resolveCustomTextToSqlAuthType(settings);
     const customResponse = await requestCustomSql({
       endpoint: customEndpoint,
+      authType: customAuthType,
       apiKey,
       model,
-      promptText,
-      schema,
+      finalPrompt,
     });
     generatedRaw = extractGeneratedSql(customResponse);
   } else {
@@ -1393,7 +1491,11 @@ function renderHistory() {
   }
 }
 
-// ===== Event Binding =====
+/**
+ * Attach all UI event listeners used by the application.
+ *
+ * Registers handlers for file uploads, running queries, opening the text-to-SQL popup, incremental result scrolling, editor tab actions (add/clear/switch), copying and exporting results and DDL, DDL-specific actions (count, preview top rows, export), and loading/saving text-to-SQL settings in the settings modal.
+ */
 function bindEvents() {
   // Upload
   on(dbUpload, 'change', (e) => {
@@ -1491,6 +1593,8 @@ function bindEvents() {
       textToSqlModelInput.value = settings.textToSqlModel || TEXT_TO_SQL_MODEL_DEFAULT;
       textToSqlApiKeyInput.value = settings.textToSqlApiKey || '';
       textToSqlCustomEndpointInput.value = settings.textToSqlCustomEndpoint || '';
+      textToSqlCustomAuthTypeInput.value =
+        settings.textToSqlCustomAuthType || TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT;
       toggleCustomEndpointField();
     });
   }
@@ -1516,6 +1620,9 @@ function bindEvents() {
       textToSqlModel: textToSqlModelInput.value.trim(),
       textToSqlApiKey: textToSqlApiKeyInput.value.trim(),
       textToSqlCustomEndpoint: customEndpoint,
+      textToSqlCustomAuthType:
+        (textToSqlCustomAuthTypeInput?.value || TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT).trim() ||
+        TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT,
     });
     // Close modal via Bootstrap
     const modal = window.bootstrap.Modal.getInstance(settingsModal);
