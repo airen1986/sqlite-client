@@ -517,6 +517,8 @@ async function buildSchemaContext() {
 function extractGeneratedSql(response) {
   if (!response) return '';
   if (typeof response === 'string') return response.trim();
+  const chatContent = response?.choices?.[0]?.message?.content;
+  if (typeof chatContent === 'string') return chatContent.trim();
   if (typeof response.sql === 'string') return response.sql.trim();
   if (typeof response.query === 'string') return response.query.trim();
   if (response.data && typeof response.data.sql === 'string') return response.data.sql.trim();
@@ -571,7 +573,8 @@ function resolveCustomTextToSqlAuthType(settings) {
   const rawAuthType = (
     settings?.textToSqlCustomAuthType || TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT
   ).trim();
-  return rawAuthType || TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT;
+  if (!rawAuthType) return TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT;
+  return rawAuthType.toLowerCase() === 'bearer' ? 'Bearer' : rawAuthType;
 }
 
 function handleTextToSqlHttpError(response, bodyText) {
@@ -638,24 +641,21 @@ async function requestClaudeSql({ apiKey, model, finalPrompt }) {
 
 async function requestGeminiSql({ apiKey, model, finalPrompt }) {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const systemPrompt =
+    'You are a SQLite SQL generator. Use "," for cross joins. Do not use aliases unless necessary. Return only SQL.';
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: systemPrompt }],
+      },
       generationConfig: {
         temperature: 0,
       },
       contents: [
-        {
-          role: 'system',
-          parts: [
-            {
-              text: 'You are a SQLite SQL generator. Use "," for cross joins. Do not use aliases unless necessary. Return only SQL.',
-            },
-          ],
-        },
         {
           role: 'user',
           parts: [{ text: finalPrompt }],
