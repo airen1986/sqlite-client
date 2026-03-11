@@ -5,7 +5,7 @@
  * It imports sqlite-wasm from /sqlite-wasm/ which is copied from node_modules.
  */
 
-import sqlite3InitModule from '/sqlite-wasm/index.mjs';
+import sqlite3InitModule from './sqlite-wasm/index.mjs';
 
 let sqlite3 = null;
 let db = null;
