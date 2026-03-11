@@ -28,7 +28,13 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     (async () => {
-      const networkResponse = await fetch(request);
+      let networkResponse;
+      try {
+        networkResponse = await fetch(request);
+      } catch (error) {
+        // If the network request fails (e.g. offline), just return the error response.
+        return new Response(error.message, { status: 503, statusText: 'Service Unavailable' });
+      }
 
       // Do not attempt to rewrite opaque or redirected responses.
       if (networkResponse.type === 'opaque' || networkResponse.type === 'opaqueredirect') {
