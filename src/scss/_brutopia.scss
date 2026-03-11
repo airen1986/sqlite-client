@@ -27,11 +27,11 @@
     2.15 Pagination
     2.16 Table
     2.17 Progress
-4. Pages
-    4.0 Layout
-    4.1 Auth
-    4.2 Error
-5. Utilities
+3. Pages
+    3.0 Layout
+    3.1 Auth
+    3.2 Error
+4. Utilities
 
 
 */
@@ -98,8 +98,8 @@
 // - 2.19. SCL-SQL
 @import './components/scl-sql';
 
-// - 4.0 Layout
+// - 3.0 Layout
 @import './layouts/main.scss';
 
-// - 5.0 Utilities
+// - 4.0 Utilities
 @import './utilities';
