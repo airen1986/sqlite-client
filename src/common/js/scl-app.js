@@ -52,6 +52,7 @@ const ENABLE_SQL_AUTOCOMPLETE = true;
 const TEXT_TO_SQL_PROVIDER_DEFAULT = 'chatgpt';
 const TEXT_TO_SQL_MODEL_DEFAULT = 'gpt-4o-mini';
 const TEXT_TO_SQL_CUSTOM_ENDPOINT_DEFAULT = '';
+const TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT = 'Bearer';
 const SQL_KEYWORDS = [
   'SELECT',
   'FROM',
@@ -298,6 +299,7 @@ const textToSqlProviderInput = $('#text-to-sql-provider-input');
 const textToSqlModelInput = $('#text-to-sql-model-input');
 const textToSqlApiKeyInput = $('#text-to-sql-api-key-input');
 const textToSqlCustomEndpointInput = $('#text-to-sql-custom-endpoint-input');
+const textToSqlCustomAuthTypeInput = $('#text-to-sql-custom-auth-type-input');
 const textToSqlCustomEndpointGroup = $('#text-to-sql-custom-endpoint-group');
 const saveSettingsBtn = $('#save-settings-btn');
 const settingsModal = $('#settingsModal');
@@ -565,6 +567,13 @@ function resolveCustomTextToSqlEndpoint(settings) {
   return rawEndpoint;
 }
 
+function resolveCustomTextToSqlAuthType(settings) {
+  const rawAuthType = (
+    settings?.textToSqlCustomAuthType || TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT
+  ).trim();
+  return rawAuthType || TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT;
+}
+
 function handleTextToSqlHttpError(response, bodyText) {
   const msg = bodyText || `${response.status} ${response.statusText}`;
   throw new Error(`Text-to-SQL request failed: ${msg}`);
@@ -583,7 +592,8 @@ async function requestChatGptSql({ apiKey, model, finalPrompt }) {
       messages: [
         {
           role: 'system',
-          content: 'You are a SQLite SQL generator. Return only SQL.',
+          content:
+            'You are a SQLite SQL generator. Use "," for cross joins. Do not use aliases unless necessary. Return only SQL.',
         },
         {
           role: 'user',
@@ -612,7 +622,8 @@ async function requestClaudeSql({ apiKey, model, finalPrompt }) {
       model,
       max_tokens: 1024,
       temperature: 0,
-      system: 'You are a SQLite SQL generator. Return only SQL.',
+      system:
+        'You are a SQLite SQL generator. Use "," for cross joins. Do not use aliases unless necessary. Return only SQL.',
       messages: [{ role: 'user', content: finalPrompt }],
     }),
   });
@@ -638,6 +649,14 @@ async function requestGeminiSql({ apiKey, model, finalPrompt }) {
       },
       contents: [
         {
+          role: 'system',
+          parts: [
+            {
+              text: 'You are a SQLite SQL generator. Use "," for cross joins. Do not use aliases unless necessary. Return only SQL.',
+            },
+          ],
+        },
+        {
           role: 'user',
           parts: [{ text: finalPrompt }],
         },
@@ -652,19 +671,32 @@ async function requestGeminiSql({ apiKey, model, finalPrompt }) {
   return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
-async function requestCustomSql({ endpoint, apiKey, model, promptText, schema }) {
+async function requestCustomSql({ endpoint, authType, apiKey, model, finalPrompt }) {
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  if (authType === 'Bearer') {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  } else if (authType) {
+    headers[authType] = `${apiKey}`;
+  }
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'x-api-key': apiKey,
-    },
+    headers,
     body: JSON.stringify({
-      prompt: promptText,
-      dialect: 'sqlite',
-      schema,
       model,
+      temperature: 0,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a SQLite SQL generator. Use "," for cross joins. Do not use aliases unless necessary. Return only SQL.',
+        },
+        {
+          role: 'user',
+          content: finalPrompt,
+        },
+      ],
     }),
   });
 
@@ -705,12 +737,13 @@ async function generateSqlFromPrompt(promptText) {
     generatedRaw = await requestGeminiSql({ apiKey, model, finalPrompt });
   } else if (provider === 'custom') {
     const customEndpoint = resolveCustomTextToSqlEndpoint(settings);
+    const customAuthType = resolveCustomTextToSqlAuthType(settings);
     const customResponse = await requestCustomSql({
       endpoint: customEndpoint,
+      authType: customAuthType,
       apiKey,
       model,
-      promptText,
-      schema,
+      finalPrompt,
     });
     generatedRaw = extractGeneratedSql(customResponse);
   } else {
@@ -1491,6 +1524,8 @@ function bindEvents() {
       textToSqlModelInput.value = settings.textToSqlModel || TEXT_TO_SQL_MODEL_DEFAULT;
       textToSqlApiKeyInput.value = settings.textToSqlApiKey || '';
       textToSqlCustomEndpointInput.value = settings.textToSqlCustomEndpoint || '';
+      textToSqlCustomAuthTypeInput.value =
+        settings.textToSqlCustomAuthType || TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT;
       toggleCustomEndpointField();
     });
   }
@@ -1516,6 +1551,9 @@ function bindEvents() {
       textToSqlModel: textToSqlModelInput.value.trim(),
       textToSqlApiKey: textToSqlApiKeyInput.value.trim(),
       textToSqlCustomEndpoint: customEndpoint,
+      textToSqlCustomAuthType:
+        (textToSqlCustomAuthTypeInput?.value || TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT).trim() ||
+        TEXT_TO_SQL_CUSTOM_AUTH_TYPE_DEFAULT,
     });
     // Close modal via Bootstrap
     const modal = window.bootstrap.Modal.getInstance(settingsModal);
