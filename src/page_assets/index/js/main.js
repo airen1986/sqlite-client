@@ -4,5 +4,22 @@ import '../../../scss/styles.scss';
 
 import { init } from '../../../common/js/scl-app';
 
+async function registerCoiServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  if (window.crossOriginIsolated) return;
+
+  try {
+    await navigator.serviceWorker.register('/sw-coi.js', { scope: '/' });
+    await navigator.serviceWorker.ready;
+    if (!window.crossOriginIsolated) {
+      window.location.reload();
+    }
+  } catch {
+    // Ignore registration failures; app can still run without SW header shim.
+  }
+}
+
 // Start the app
-init();
+registerCoiServiceWorker().then(() => {
+  init();
+});

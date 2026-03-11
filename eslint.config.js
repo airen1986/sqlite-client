@@ -25,6 +25,7 @@ export default [
         AbortController: "readonly",
         requestAnimationFrame: "readonly",
         setTimeout: "readonly",
+        Response: "readonly",
       },
     },
     rules: {
